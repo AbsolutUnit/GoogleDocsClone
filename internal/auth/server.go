@@ -54,12 +54,9 @@ func (as AuthServer) login(w http.ResponseWriter, r *http.Request) {
 
 		// Check for existing account
 		loginCand := as.repo.FindByKey("username", account.Username)
-		if loginCand.Username == "" {
-			as.errorResp(w, r, "Account does not exist.")
-		}
 		// Validate password
-		if !account.ComparePassword(loginCand.Password) {
-			as.errorResp(w, r, "Wrong password.")
+		if !account.TestPassword(loginCand) {
+			as.errorResp(w, r, "Account could not be found or wrong password.")
 		}
 		// Generate JWT token
 		as.tokens.Store(account.CreateJwt(as.config.ClaimKey))

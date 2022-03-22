@@ -25,8 +25,9 @@ func (a Account) IdKey() string {
 	return "id"
 }
 
-// Given a hashed password, hash the account's password and compare the two.
-func (a Account) ComparePassword(hashedPassword string) (valid bool) {
+// Given an account with a hashed password, hash this account's password and compare the two.
+func (a Account) TestPassword(account Account) (valid bool) {
+	// bcrypt with cost factor 10
 	return false
 }
 
