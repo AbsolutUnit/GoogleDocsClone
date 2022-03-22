@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/json"
 	"final"
 	"fmt"
 	"net/http"
@@ -12,7 +13,7 @@ import (
 
 type AuthServer struct {
 	config AuthConfig
-	repo AuthStore
+	repo   store.Repository[Account]
 }
 
 func NewAuthServer(config AuthConfig) (as AuthServer) {
