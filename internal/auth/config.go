@@ -13,8 +13,9 @@ const (
 )
 
 type AuthConfig struct {
+	ClaimKey string
 	Cse356Id string
-	Db struct {
+	Db       struct {
 		Type     AuthConfigDbType
 		Uri      string
 		DbName   string
