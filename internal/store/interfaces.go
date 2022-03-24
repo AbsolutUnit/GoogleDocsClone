@@ -5,12 +5,11 @@ import (
 )
 
 type Model interface {
-	// Must be "static."
-	IdKey() string // returns something like "id" or "Id"
+	Id() string
 }
 
 type Repository[MODEL Model] interface {
 	Store(data MODEL) error
-	FindById(id snowflake.ID) (result MODEL)
+	FindById(id string) (result MODEL)
 	FindByKey(key string, value any) (result MODEL)
 }

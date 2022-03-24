@@ -46,11 +46,12 @@ func (m *MongoDbStore[MODEL]) Store(model MODEL) (err error) {
 	return
 }
 
-func (m *MongoDbStore[MODEL]) FindById(id snowflake.ID) (result MODEL) {
+func (m *MongoDbStore[MODEL]) FindById(id string) (result MODEL) {
 	col := m.cli.Database(m.dbName).Collection(m.collection)
 	ctx, cancel := context.WithTimeout(context.Background(), m.timeOutSeconds)
 	defer cancel()
-	filter := bson.D{primitive.E{Key: result.IdKey(), Value: id}}
+	// TODO: is this a bug because id isn't capitalized?
+	filter := bson.D{primitive.E{Key: "Id", Value: id}}
 	err := col.FindOne(ctx, filter).Decode(&result)
 	if err != nil && err != mongo.ErrNoDocuments {
 		final.LogError(err, "could not look for database object")
