@@ -1,4 +1,4 @@
-package auth
+package session
 
 import (
 	"github.com/bwmarrin/snowflake"
@@ -9,8 +9,8 @@ type Token struct {
 	token string
 }
 
-func (t Token) IdKey() string {
-	return "id"
+func (t Token) Id() string {
+	return t.id.String()
 }
 
 type Account struct {
