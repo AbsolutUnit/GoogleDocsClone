@@ -7,7 +7,7 @@ quill.on('text-change', update); // might want editor-change
 update();
 
 // connect to event stream
-const ip = 0.0.0.0;
+const ip = "0.0.0.0";
 const id = generateId();
 const connUrl = "http://" + ip + "/connect/" + id;
 const eventSource = new EventSource(connUrl);
