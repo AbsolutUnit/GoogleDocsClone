@@ -1,9 +1,5 @@
 package store
 
-import (
-	"github.com/bwmarrin/snowflake"
-)
-
 type Model interface {
 	Id() string
 }
