@@ -22,10 +22,14 @@ type Rbmq struct {
 
 func NewRbmq(url string) *Rbmq {
 	conn, err := amqp.Dial(url)
-	LogFatal(err, "Failed to connect to RabbitMQ")
+	if err != nil {
+		LogFatal(err, "Failed to connect to RabbitMQ")
+	}
 
 	ch, err := conn.Channel()
-	LogFatal(err, "Failed to open a channel")
+	if err != nil {
+		LogFatal(err, "Failed to open a channel")
+	}
 
 	return &Rbmq{
 		conn,
