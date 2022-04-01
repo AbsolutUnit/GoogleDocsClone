@@ -14,15 +14,15 @@ func (t Token) IdKey() string {
 }
 
 type Account struct {
-	Id       snowflake.ID
+	id       snowflake.ID
 	Username string
 	Password string
 	Email    string
 	Verified bool
 }
 
-func (a Account) IdKey() string {
-	return "id"
+func (a Account) Id() string {
+	return a.id.String()
 }
 
 // Given an account with a hashed password, hash this account's password and compare the two.
