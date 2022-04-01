@@ -12,7 +12,10 @@ import (
 
 type MessageQueue interface {
 	DeclareExchange()
-	QueueBind()
+	DeclareQueueBind()
+	Publish()
+	Consume()
+}
 
 
 type Rbmq struct {
@@ -34,5 +37,23 @@ func NewRbmq(url string) *Rbmq {
 	return &Rbmq{
 		conn,
 		ch,
+	}
+}
+
+func (mq *Rbmq) DeclareBindQueues(keys []string, ExchangeName string) {
+	// Declare Queues
+	q, err = mq.ch.QueueDeclare (
+		"",    // name
+		false, // durable
+		false, // delete when unused
+		true,  // exclusive
+		false, // no-wait
+		nil,   // arguments
+	)
+	// Bind Queues
+	for _, key := range keys {
+		mq.ch.QueueBind(
+			
+		)
 	}
 }
