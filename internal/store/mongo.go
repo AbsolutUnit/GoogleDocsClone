@@ -19,7 +19,7 @@ type MongoDbStore[MODEL Model] struct {
 	timeOutSeconds time.Duration
 }
 
-func NewMongoDb[MODEL Model](uri, dbName, collection string, timeOutSeconds time.Duration) *MongoDbStore[MODEL] {
+func NewMongoDbStore[MODEL Model](uri, dbName, collection string, timeOutSeconds time.Duration) *MongoDbStore[MODEL] {
 	ctx, cancel := context.WithTimeout(context.Background(), timeOutSeconds)
 	defer cancel()
 	cli, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
