@@ -1,8 +1,6 @@
 package session
 
 import (
-	"bytes"
-	"encoding/json"
 	"final"
 	"final/internal/store"
 	"final/internal/util"
@@ -14,9 +12,8 @@ import (
 
 type SessionServer struct {
 	config SessionConfig
-	// Milestone 2
-	// docs   store.Repository[OTDocument]
-	doc   OTDocument
+	// NEXT Milestone 2
+	docs  store.Repository[OTDocument]
 	accts store.Repository[Account]
 	conn  *amqp.Connection
 	ch    *amqp.Channel
@@ -24,15 +21,24 @@ type SessionServer struct {
 
 func NewSessionServer(config SessionConfig) (ss SessionServer) {
 	ss = SessionServer{}
-	ss.doc = OTDocument{
-		id: "1",
-	}
+	ss.docs = store.NewInMemoryStore[OTDocument]()
+	ss.docs.Store(OTDocument{id: "1"})
 	return
 }
 
+// Given a message containing the document id, client id, and transformed change,
+// write appropriate server side events to all those who are editing the document.
 func (ss SessionServer) handleOTResponse(msg amqp.Delivery) {
-	transformed := util.ServerOTMessage{}
-	json.NewDecoder(&transformed).Decode(bytes.NewReader(msg.Body))
+	// needs to be added to the util :(
+	// transformed := util.ServerOTMessage{}
+	// json.NewDecoder(&transformed).Decode(bytes.NewReader(msg.Body))
+	// NEXT Milestone 1 requires only one document, update this when Milestone 2 comes
+	// toWrite := struct {
+	// data []util.ServerOTMessage{}
+	// }
+	// for i,c := range docs.FindById(transformed.DocumentId) {
+	// //	hacky write, but a bit more performant?
+	// }
 }
 
 func (ss SessionServer) InitRbmq() {
