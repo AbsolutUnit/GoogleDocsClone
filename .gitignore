@@ -15,6 +15,7 @@ tmp/
 !*.html
 !*.png
 !*.css
+!*.js
 
 # But not these files...
 !/.gitignore
