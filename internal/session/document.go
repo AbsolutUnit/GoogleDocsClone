@@ -1,10 +1,12 @@
 package session
 
-import "net/http"
+type EventData struct {
+	Data any `json:"data"`
+}
 
 type Connection struct {
 	Account Account
-	w http.ResponseWriter
+	events chan *EventData
 }
 
 type SessionDocument struct {
