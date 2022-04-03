@@ -25,7 +25,12 @@ func NewRabbitMq(dialUrl string) RabbitMq {
 	}
 }
 
-func (rm RabbitMq) Consume(exchangeName, exchangeType, queueName string) <-chan amqp.Delivery {
+func (rm RabbitMq) Close() {
+	defer rm.conn.Close()
+	defer rm.ch.Close()
+}
+
+func (rm RabbitMq) Consume(exchangeName, exchangeType, queueName, key string) <-chan amqp.Delivery {
 	err := rm.ch.ExchangeDeclare(
 		exchangeName,
 		exchangeType,
@@ -37,17 +42,19 @@ func (rm RabbitMq) Consume(exchangeName, exchangeType, queueName string) <-chan 
 	)
 	final.LogFatal(err, "Failed to declare an exchange.")
 
+	q, err := rm.ch.QueueDeclare(queueName, true, false, true, false, nil)
+
 	// Bind to the queue.
-	err = rm.ch.QueueBind(queueName, "", exchangeName, false, nil)
+	err = rm.ch.QueueBind(q.Name, key, exchangeName, false, nil)
 	final.LogFatal(err, "Failed to bind to the queue.")
 
-	responses, err := rm.ch.Consume(queueName, "", true, false, false, false, nil)
+	responses, err := rm.ch.Consume(q.Name, "", true, false, false, false, nil)
 	final.LogFatal(err, "Failed to start consuming from OT servers. Have you initialized RabbitMQ?")
 
 	return responses
 }
 
-func (rm RabbitMq) Publish(exchangeName, exchangeType, queueName, message string) error {
+func (rm RabbitMq) Publish(exchangeName, exchangeType, key, message string) error {
 	err := rm.ch.ExchangeDeclare(
 		exchangeName,
 		exchangeType,
@@ -59,17 +66,13 @@ func (rm RabbitMq) Publish(exchangeName, exchangeType, queueName, message string
 	)
 	final.LogFatal(err, "Failed to declare an exchange.")
 
-	// Bind to the queue.
-	err = rm.ch.QueueBind(queueName, "", exchangeName, false, nil)
-	final.LogFatal(err, "Failed to bind to the queue.")
-
-	err = rm.ch.Publish(exchangeName, "", true, false, amqp.Publishing{
+	err = rm.ch.Publish(exchangeName, key, true, false, amqp.Publishing{
 		ContentType: "text/plain",
 		Body:        []byte(message),
 	})
 	final.LogFatal(err,
-		fmt.Sprintf("Failed to publish message %0.15s to exchange %0.15s queue %0.15s",
-			message, exchangeName, queueName))
+		fmt.Sprintf("Failed to publish message %0.15s to exchange %0.15s key %0.15s",
+			message, exchangeName, key))
 
 	return err
 }
