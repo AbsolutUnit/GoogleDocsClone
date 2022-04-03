@@ -7,11 +7,11 @@ type Connection struct {
 	w http.ResponseWriter
 }
 
-type OTDocument struct {
+type SessionDocument struct {
 	id 	string
 	Connections []Connection
 }
 
-func (ot OTDocument) Id() string {
-	return ot.id
+func (sd SessionDocument) Id() string {
+	return sd.id
 }
