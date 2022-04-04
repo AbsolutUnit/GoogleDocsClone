@@ -9,6 +9,7 @@ import (
 	"github.com/xxuejie/go-delta-ot/ot"
 	"github.com/fmpwizard/go-quilljs-delta/delta"
 	"final/internal/util"
+	"strconv"
 )
 
 type OTServer struct {
@@ -49,17 +50,15 @@ func (ots OTServer) Start() {
 	if err != nil {
 	    final.LogFatal(err, "oopsie woopsie")
 	}
-	if msg.DocumentId != "" && msg.ClientId != "" && msg.Change == nil {
+	if msg.DocumentId != 0 && msg.ClientId != "" && msg.Change == nil {
 	    ots.handleConnect(msg)
-	} else if msg.DocumentId != "" && msg.ClientId != "" && msg.Change != nil {
+	} else if msg.DocumentId != 0 && msg.ClientId != "" && msg.Change != nil {
 	    ots.handleOp(msg)
-	} else if msg.DocumentId != "" && msg.ClientId == "" && msg.Change == nil {
+	} else if msg.DocumentId != 0 && msg.ClientId == "" && msg.Change == nil {
 	    ots.handleGetDoc(msg)
 	} else {
 	    final.LogFatal(err, "super oopsie woopsie fucky wucky")
 	}
-
-
     }
 }
 
@@ -68,7 +67,25 @@ func (ots OTServer) handleConnect(msg util.SessionOTMessage) {
 }
 
 func (ots OTServer) handleOp(msg util.SessionOTMessage) {
-    // TODO
+    // get document version number
+    version := ots.fileServer.CurrentChange(msg.DocumentId).Change.Version
+    msg.MultiFileChange.Change.Version = version
+    id, err := strconv.ParseUint(msg.ClientID, 10, 32)
+    if err != nil {
+	final.LogFatal(err, "error parsing client id into uint")
+    }
+    id = uint32(id)
+    newChange, err = ots.fileServer.Submit(id, msg.MultiFileChange)
+    if err != nil {
+	final.LogFatal(err, "failed to submit change")
+    }
+    newMsg := struct {
+	msg.DocumentId
+	msg.ClientId
+	newChange
+    }
+    newMsg = util.Serialize[util.SessionOTMessage](newMsg)
+    ots.amqp.Publish(ots.config.ExchangeName, "direct", "session", newMsg)
 }
 
 func (ots OTServer) handleGetDoc(msg util.SessionOTMessage) {
