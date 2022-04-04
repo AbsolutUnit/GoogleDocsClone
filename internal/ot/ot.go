@@ -71,10 +71,13 @@ func (ots OTServer) Start() {
 
 // yes DocID, yes ClientID, no Change
 func (ots OTServer) handleConnect(msg util.SessionOTMessage) {
-	document := NewDocument(msg.DocumentId, msg.ClientId)
-	// TODO : do I need to specify generic for Serialize?
-	response := string(util.Serialize(document.contents))
-	err = ots.amqp.Publish(ots.config.ExchangeName, "direct", "newClient", response)
+		document := docs.FindById(msg.DocumentId)
+		if document == nil { // if document does not exist
+			document = NewDocument(msg.DocumentId, msg.ClientID)
+		}
+		// TODO : do I need to specify generic for Serialize?
+		response := string(util.Serialize(document.contents))
+		err = ots.amqp.Publish(ots.config.ExchangeName, "direct", "newClient", response)
 }
 
 // yes DocID, yes ClientID, yes Change
@@ -102,12 +105,16 @@ func (ots OTServer) handleOp(msg util.SessionOTMessage) {
 
 // yes DocID, no ClientID, no Change
 func (ots OTServer) handleGetDoc(msg util.SessionOTMessage) {
-	// TODO
+	response := ots.DocToHTML(msg.DocumentID)
+	err = ots.amqp.Publish(ots.config.ExchangeName, "direct", "html", response)
 }
 
-func (ots OTServer) DocToHTML(html string) {
+// TODO : add database saving functionality
+
+func (ots OTServer) DocToHTML(documentID string) (html string) {
 	//bold, italics, normal, line break
-	for _, op := range ots.Ops {
+	operations := docs.FindById(documentID).contents.Ops
+	for _, op := range operations {
 		tag := string(op.Insert)
 		if op.Attributes == nil {
 			if tag == "\n" { //if just line break
