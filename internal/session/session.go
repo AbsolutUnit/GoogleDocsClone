@@ -17,16 +17,16 @@ import (
 
 type SessionServer struct {
 	config SessionConfig
-	docs   store.Repository[SessionDocument]
+	docs   store.Repository[SessionDocument, string]
 	// NEXT Milestone 2
-	accts        store.Repository[Account]
+	accts        store.Repository[Account, string]
 	amqp         rbmq.Broker
 	stoppingChan chan bool
 }
 
 func NewSessionServer(config SessionConfig) (ss SessionServer) {
 	ss = SessionServer{}
-	ss.docs = store.NewInMemoryStore[SessionDocument]()
+	ss.docs = store.NewInMemoryStore[SessionDocument, string]()
 	// NEXT Milestone 2 change this
 	ss.docs.Store(SessionDocument{id: "1"})
 	// NEXT Milestone 2
@@ -43,10 +43,10 @@ func (ss SessionServer) consumeOTResponse(msg amqp.Delivery) {
 	if err != nil {
 		final.LogError(err, "Could not deserialize OT response.")
 	}
-	for _, c := range ss.docs.FindById(string(transformed.DocumentId)).Connections {
+	for _, c := range ss.docs.FindById(fmt.Sprint(transformed.DocumentId)).Connections {
 		// write data to c if c.Id() is not transformed.ClientId
 		if c.Id() != transformed.ClientId {
-			c.Events <- &EventData{Data: transformed.MultiFileChange.Change.Delta}
+			c.Events <- &EventData{Data: transformed.Change.Delta}
 		}
 	}
 }
@@ -92,7 +92,7 @@ func (ss SessionServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case strings.Contains(r.URL.Path, "op/"):
 		ss.handleOp(w, r)
 	case strings.Contains(r.URL.Path, "doc/"):
-		ss.handleGetDoc(w, r)
+		ss.handleDoc(w, r)
 	}
 }
 
@@ -113,13 +113,16 @@ func (ss SessionServer) retrieveFullDocument(doc SessionDocument, client SSEClie
 		final.LogError(err, "Could not publish message to AMQP.")
 	}
 	responses := ss.amqp.Consume(ss.config.ExchangeName, "direct", "", "newClient")
+	if err != nil {
+		final.LogError(err, "Could not consume message from OT server.")
+	}
 	sseMsg, err := util.Deserialize[util.SessionOTMessage]((<-responses).Body)
 	if err != nil {
 		final.LogError(err, "Could not deserialize message from OT server.")
 	}
 	sseData, _ := util.Serialize(EventData{Data: struct {
 		Content any `json:"content"`
-	}{Content: sseMsg.MultiFileChange.Change.Delta}})
+	}{Content: sseMsg.Change.Delta}})
 	return sseData
 }
 
@@ -184,8 +187,7 @@ func (ss SessionServer) handleOp(w http.ResponseWriter, r *http.Request) {
 		bodyDelta := delta.Delta{}
 		json.NewDecoder(r.Body).Decode(&bodyDelta)
 		// NEXT Milestone ??? - does this have version in it?
-		msg.MultiFileChange.Id = 1 // NEXT Milestone 1 specific
-		msg.MultiFileChange.Change.Delta = &bodyDelta
+		msg.Change.Delta = bodyDelta
 	}
 	msgBytes, err := util.Serialize(msg)
 	if err != nil {
@@ -197,7 +199,7 @@ func (ss SessionServer) handleOp(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (ss SessionServer) handleGetDoc(w http.ResponseWriter, r *http.Request) {
+func (ss SessionServer) handleDoc(w http.ResponseWriter, r *http.Request) {
 	msg := util.SessionOTMessage{
 		DocumentId: 1,
 		ClientId:   "",

@@ -15,7 +15,7 @@ import (
 
 type OTServer struct {
 	config OTConfig
-	docs   store.Repository[Document]
+	docs   store.Repository[Document, string]
 	amqp   rbmq.RabbitMq
 	File   ot.File
 }
@@ -41,7 +41,7 @@ func NewDocument(documentID string, clientID string) Document {
 
 func NewOTServer(config OTConfig) OTServer {
 	ots := OTServer{}
-	ots.docs = store.NewMongoDbStore[Document](config.Db)
+	ots.docs = store.NewMongoDbStore[Document, string](config.Db)
 	ots.amqp = rbmq.NewRabbitMq(config.AmqpUrl)
 	return ots
 }

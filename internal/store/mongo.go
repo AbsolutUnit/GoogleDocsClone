@@ -12,21 +12,21 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type MongoDbStore[MODEL Model] struct {
+type MongoDbStore[MODEL Model[ID], ID comparable] struct {
 	cli            *mongo.Client
 	dbName         string
 	collection     string
 	timeOutSeconds time.Duration
 }
 
-func NewMongoDbStore[MODEL Model](uri, dbName, collection string, timeOutSeconds time.Duration) *MongoDbStore[MODEL] {
+func NewMongoDbStore[MODEL Model[ID], ID comparable](uri, dbName, collection string, timeOutSeconds time.Duration) *MongoDbStore[MODEL, ID] {
 	ctx, cancel := context.WithTimeout(context.Background(), timeOutSeconds)
 	defer cancel()
 	cli, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {
 		final.LogError(err, "could not connect to mongodb instance")
 	}
-	return &MongoDbStore[MODEL]{
+	return &MongoDbStore[MODEL, ID]{
 		cli,
 		dbName,
 		collection,
@@ -34,7 +34,7 @@ func NewMongoDbStore[MODEL Model](uri, dbName, collection string, timeOutSeconds
 	}
 }
 
-func (m *MongoDbStore[MODEL]) Store(model MODEL) (err error) {
+func (m *MongoDbStore[MODEL, ID]) Store(model MODEL) (err error) {
 	col := m.cli.Database(m.dbName).Collection(m.collection)
 	ctx, cancel := context.WithTimeout(context.Background(), m.timeOutSeconds)
 	defer cancel()
@@ -45,7 +45,7 @@ func (m *MongoDbStore[MODEL]) Store(model MODEL) (err error) {
 	return
 }
 
-func (m *MongoDbStore[MODEL]) FindById(id string) (result MODEL) {
+func (m *MongoDbStore[MODEL, ID]) FindById(id ID) (result MODEL) {
 	col := m.cli.Database(m.dbName).Collection(m.collection)
 	ctx, cancel := context.WithTimeout(context.Background(), m.timeOutSeconds)
 	defer cancel()
@@ -58,7 +58,7 @@ func (m *MongoDbStore[MODEL]) FindById(id string) (result MODEL) {
 	return
 }
 
-func (m *MongoDbStore[MODEL]) FindByKey(key string, value any) (result MODEL) {
+func (m *MongoDbStore[MODEL, ID]) FindByKey(key string, value any) (result MODEL) {
 	col := m.cli.Database(m.dbName).Collection(m.collection)
 	ctx, cancel := context.WithTimeout(context.Background(), m.timeOutSeconds)
 	defer cancel()
