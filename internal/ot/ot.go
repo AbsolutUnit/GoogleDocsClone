@@ -21,7 +21,28 @@ type Document struct {
 	contents delta.Delta
 	ID string
 	clientIds []string
-} 
+}
+
+func NewOTServer(config OTConfig) OTServer {
+    ots := OTServer{}
+    ots.docs = store.NewMongoDBStore[Document]()
+    ots.fileServer :=  ot.NewMultiFileServer()
+    ots.amqp := rbmq.NewRabbitMq(config.AmqpUrl)
+}
+
+func (ots OTServer) Start() {
+    // start MultiFileServer
+    go func() {
+	ots.s.Start()
+    }()
+
+    for {
+	// listen for incoming messages
+	msg := ots.amqp.Consume(ots.config.ExchangeName, "direct", "q", "q")
+	// based on message, do shit
+
+    }
+}
 
 func (ots OTServer) Get (html string){
 	//bold, italics, normal, line break
