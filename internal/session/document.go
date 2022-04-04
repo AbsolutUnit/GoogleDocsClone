@@ -6,7 +6,7 @@ type EventData struct {
 
 type SSEClient struct {
 	id      string // ID of the client, not the account
-	Account Account
+	Account *Account
 	Events  chan *EventData
 }
 

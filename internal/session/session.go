@@ -26,11 +26,12 @@ type SessionServer struct {
 
 func NewSessionServer(config SessionConfig) (ss SessionServer) {
 	ss = SessionServer{}
+	ss.config = config
 	ss.docs = store.NewInMemoryStore[SessionDocument, string]()
-	// NEXT Milestone 2 change this
+	// NEXT Milestone 2 remove this
 	ss.docs.Store(SessionDocument{id: "1"})
 	// NEXT Milestone 2
-	// ss.accts.Store(data Account)
+	// ss.accts = store.NewMongoDbStore[Account, string](ss.config.Db.Uri, ss.config.Db.DbName, "accounts", time.Minute)
 	ss.amqp = rbmq.NewRabbitMq(ss.config.AmqpUrl)
 	return
 }
@@ -62,6 +63,9 @@ func (ss SessionServer) Listen() {
 			stopping = true
 		case msg := <-responses:
 			final.LogDebug(nil, "Session received: "+string(msg.Body))
+			// Do not run this in a goroutine, because we might have
+			// successive changes to the same document which can
+			// cause a race condition.
 			ss.consumeOTResponse(msg)
 		}
 	}
@@ -187,7 +191,7 @@ func (ss SessionServer) handleOp(w http.ResponseWriter, r *http.Request) {
 		bodyDelta := delta.Delta{}
 		json.NewDecoder(r.Body).Decode(&bodyDelta)
 		// NEXT Milestone ??? - does this have version in it?
-		msg.Change.Delta = bodyDelta
+		msg.Change.Delta = &bodyDelta
 	}
 	msgBytes, err := util.Serialize(msg)
 	if err != nil {
