@@ -3,6 +3,8 @@ package rbmq
 import (
 	"errors"
 	"final"
+
+	"github.com/streadway/amqp"
 )
 
 type MockRbmq struct {
@@ -21,7 +23,7 @@ func (mr MockRbmq) Publish(exchangeName, exchangeType, key, message string) erro
 func (mr MockRbmq) Consume(exchangeName, exchangeType, queueName, key string) <-chan amqp.Delivery {
 	err := errors.New("not implemented.")
 	final.LogFatal(err, "mock consume.")
-	return err
+	return make(<-chan amqp.Delivery)
 }
 
 func (mr MockRbmq) Close() {

@@ -10,7 +10,7 @@ import (
 type Message map[string]any
 
 type SessionOTMessage struct {
-	DocumentId      string
+	DocumentId      uint32
 	ClientId        string
 	MultiFileChange ot.MultiFileChange
 }
