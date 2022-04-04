@@ -31,8 +31,8 @@ func (d Document) Id() string {
 func NewOTServer(config OTConfig) OTServer {
     ots := OTServer{}
     ots.docs = store.NewMongoDBStore[Document]()
-    ots.fileServer :=  ot.NewMultiFileServer()
-    ots.amqp := rbmq.NewRabbitMq(config.AmqpUrl)
+    ots.fileServer =  ot.NewMultiFileServer()
+    ots.amqp = rbmq.NewRabbitMq(config.AmqpUrl)
 }
 
 func (ots OTServer) Start() {
@@ -49,11 +49,11 @@ func (ots OTServer) Start() {
 	if err != nil {
 	    final.LogFatal(err, "oopsie woopsie")
 	}
-	if msg.DocumentId != "" && msg.ClientId != "" && msg.Change == nil {
+	if msg.DocumentId != "" && msg.ClientId != "" && msg.MultiFileChange == nil {
 	    ots.handleConnect(msg)
-	} else if msg.DocumentId != "" && msg.ClientId != "" && msg.Change != nil {
+	} else if msg.DocumentId != "" && msg.ClientId != "" && msg.MultiFileChange != nil {
 	    ots.handleOp(msg)
-	} else if msg.DocumentId != "" && msg.ClientId == "" && msg.Change == nil {
+	} else if msg.DocumentId != "" && msg.ClientId == "" && msg.MultiFileChange == nil {
 	    ots.handleGetDoc(msg)
 	} else {
 	    final.LogFatal(err, "super oopsie woopsie fucky wucky")
@@ -85,8 +85,7 @@ func (ots OTServer) DocToHTML (html string){
 			} else { //normal text
 				tag = fmt.Sprintf("<p>%s</p>", tag)
 			}
-		}
-		else if { // if attributes exist
+		} else if { // if attributes exist
 			value,exists := op.Attributes["bold"]
 			if exists == true {
 				tag = fmt.Sprintf("<strong>%s</strong>", tag)
