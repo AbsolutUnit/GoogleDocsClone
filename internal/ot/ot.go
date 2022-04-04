@@ -6,8 +6,8 @@ import (
 	"final/internal/store"
 	"final/internal/util"
 	"fmt"
-	"strconv"
 	"strings"
+	"time"
 
 	"github.com/fmpwizard/go-quilljs-delta/delta"
 	"github.com/xxuejie/go-delta-ot/ot"
@@ -15,25 +15,26 @@ import (
 
 type OTServer struct {
 	config OTConfig
-	docs   store.Repository[Document, string]
+	docCache store.Repository[Document, uint32]
+	docDb   store.Repository[Document, uint32]
 	amqp   rbmq.RabbitMq
-	File   ot.File
 }
 
 type Document struct {
-	contents  delta.Delta
-	ID        string
+	ID        uint32
+	file 	  *ot.File
+	// Kelvin: why do we have this?
 	clientIds []string
 }
 
-func (d Document) Id() string {
+func (d Document) Id() uint32 {
 	return d.ID
 }
 
-func NewDocument(documentID string, clientID string) Document {
+func NewDocument(documentID uint32, clientID string) Document {
 	document := Document{}
 	//new document is just "\n"
-	document.contents = delta.Delta{[]Op{Op{Insert: []rune("\n")}}}
+	document.file = ot.NewFile(delta.Delta{[]delta.Op{delta.Op{Insert: []rune("\n")}}})
 	document.ID = documentID
 	document.clientIds = []string{clientID}
 	return document
@@ -41,7 +42,8 @@ func NewDocument(documentID string, clientID string) Document {
 
 func NewOTServer(config OTConfig) OTServer {
 	ots := OTServer{}
-	ots.docs = store.NewMongoDbStore[Document, string](config.Db)
+	ots.docCache = store.NewInMemoryStore[Document, uint32]()
+	ots.docDb = store.NewMongoDbStore[Document, uint32](config.Db.Uri, config.Db.DbName, "documents", time.Minute)
 	ots.amqp = rbmq.NewRabbitMq(config.AmqpUrl)
 	return ots
 }
@@ -71,26 +73,24 @@ func (ots OTServer) Start() {
 
 // yes DocID, yes ClientID, no Change
 func (ots OTServer) handleConnect(msg util.SessionOTMessage) {
-		document := docs.FindById(msg.DocumentId)
-		if document == nil { // if document does not exist
-			document = NewDocument(msg.DocumentId, msg.ClientID)
+		document := ots.docDb.FindById(msg.DocumentId)
+		if document.ID == 0 { // if document does not exist
+			document = NewDocument(msg.DocumentId, msg.ClientId)
 		}
-		// TODO : do I need to specify generic for Serialize?
-		response := string(util.Serialize(document.contents))
-		err = ots.amqp.Publish(ots.config.ExchangeName, "direct", "newClient", response)
+	response, err := util.Serialize(document.file.CurrentChange())
+	if err != nil {
+		final.LogError(err, "Could not deserialize document.")
+	}
+	err = ots.amqp.Publish(ots.config.ExchangeName, "direct", "newClient", string(response))
 }
 
 // yes DocID, yes ClientID, yes Change
 func (ots OTServer) handleOp(msg util.SessionOTMessage) {
 	// get document version number
-	version := ots.File.Version
-	msg.Change.Version = version
-	id, err := strconv.ParseUint(msg.ClientId, 10, 32)
-	if err != nil {
-		final.LogFatal(err, "error parsing client id into uint")
-	}
-	id = uint32(id)
-	newChange, err := ots.File.Submit(id, msg.Change)
+	file := ots.docCache.FindById(msg.DocumentId).file
+	version := file.CurrentChange().Version
+	msg.Change.Version = version+1
+	newChange, err := file.Submit(msg.Change)
 	if err != nil {
 		final.LogFatal(err, "failed to submit change")
 	}
@@ -99,21 +99,21 @@ func (ots OTServer) handleOp(msg util.SessionOTMessage) {
 		msg.ClientId,
 		newChange,
 	}
-	newMsg, err = util.Serialize[util.SessionOTMessage](newMsg)
-	ots.amqp.Publish(ots.config.ExchangeName, "direct", "session", newMsg)
+	msgBytes, err := util.Serialize[util.SessionOTMessage](newMsg)
+	ots.amqp.Publish(ots.config.ExchangeName, "direct", "session", string(msgBytes))
 }
 
 // yes DocID, no ClientID, no Change
 func (ots OTServer) handleGetDoc(msg util.SessionOTMessage) {
-	response := ots.DocToHTML(msg.DocumentID)
+	response := ots.DocToHTML(msg.DocumentId)
 	err = ots.amqp.Publish(ots.config.ExchangeName, "direct", "html", response)
 }
 
 // TODO : add database saving functionality
 
-func (ots OTServer) DocToHTML(documentID string) (html string) {
+func (ots OTServer) DocToHTML(documentID uint32) (html string) {
 	//bold, italics, normal, line break
-	operations := docs.FindById(documentID).contents.Ops
+	operations := ots.docCache.FindById(documentID).file.CurrentChange().Delta.Ops
 	for _, op := range operations {
 		tag := string(op.Insert)
 		if op.Attributes == nil {
@@ -123,11 +123,11 @@ func (ots OTServer) DocToHTML(documentID string) (html string) {
 				tag = fmt.Sprintf("<p>%s</p>", tag)
 			}
 		} else { // if attributes exist
-			value, exists := op.Attributes["bold"]
+			_, exists := op.Attributes["bold"]
 			if exists == true {
 				tag = fmt.Sprintf("<strong>%s</strong>", tag)
 			}
-			value, exists = op.Attributes["italic"]
+			_, exists = op.Attributes["italic"]
 			if exists == true {
 				tag = fmt.Sprintf("<em>%s</em>", tag)
 			}
