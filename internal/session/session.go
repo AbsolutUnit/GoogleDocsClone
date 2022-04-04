@@ -112,7 +112,9 @@ func (ss SessionServer) retrieveFullDocument(doc SessionDocument, client SSEClie
 	if err != nil {
 		final.LogError(err, "Could not deserialize message from OT server.")
 	}
-	sseData, _ := util.Serialize(EventData{sseMsg.Change.Delta})
+	sseData, _ := util.Serialize(EventData{Data: struct {
+		Content any `json:"content"`
+	}{Content: sseMsg.Change.Delta}})
 	return sseData
 }
 
@@ -126,9 +128,7 @@ func (ss SessionServer) handleConnect(w http.ResponseWriter, r *http.Request) {
 	// NEXT if no doc exists, create OTDocument - not issue for M1
 	client, exists := doc.Connections[clientId]
 
-	// Setup SSE.
-	// These are needed whether or not this is the first request on the connection.
-	// TODO eventually if needed refactor SSE into its own file within session idk.
+	// SSE headers.
 	ss.addSSEHeaders(w)
 
 	// If this client has not connected yet
