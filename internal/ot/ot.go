@@ -28,11 +28,21 @@ func (d Document) Id() string {
 	return d.ID
 }
 
+func NewDocument(documentID string, clientID string) Document{
+	document := Document{}
+	//new document is just "\n"
+	document.contents = delta.Delta{[]Op{Op{Insert: []rune("\n")}}}
+	document.ID = documentID
+	document.clientIds = []string{clientID}
+	return document
+}
+
 func NewOTServer(config OTConfig) OTServer {
-	ots := OTServer{}
-	ots.docs = store.NewMongoDBStore[Document]()
-	ots.fileServer = ot.NewMultiFileServer()
-	ots.amqp = rbmq.NewRabbitMq(config.AmqpUrl)
+    ots := OTServer{}
+    ots.docs = store.NewMongoDBStore[Document]()
+    ots.fileServer :=  ot.NewMultiFileServer()
+    ots.amqp := rbmq.NewRabbitMq(config.AmqpUrl)
+		return ots
 }
 
 func (ots OTServer) Start() {
@@ -62,14 +72,20 @@ func (ots OTServer) Start() {
 	}
 }
 
+// yes DocID, yes ClientID, no Change
 func (ots OTServer) handleConnect(msg util.SessionOTMessage) {
-	// TODO
+    document := NewDocument(msg.DocumentId, msg.ClientID)
+		// TODO : do I need to specify generic for Serialize?
+		response := string(util.Serialize(document.contents))
+		err = ots.amqp.Publish(ots.config.ExchangeName, "direct", "newClient", response)
 }
 
+// yes DocID, yes ClientID, yes Change
 func (ots OTServer) handleOp(msg util.SessionOTMessage) {
 	// TODO
 }
 
+// yes DocID, no ClientID, no Change
 func (ots OTServer) handleGetDoc(msg util.SessionOTMessage) {
 	// TODO
 }
