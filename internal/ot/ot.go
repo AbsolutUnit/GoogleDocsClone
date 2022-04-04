@@ -76,6 +76,14 @@ func (ots OTServer) handleConnect(msg util.SessionOTMessage) {
 	document := ots.docDb.FindById(msg.DocumentId)
 	if document.ID == 0 { // if document does not exist
 		document = NewDocument(msg.DocumentId, msg.ClientId)
+		err := ots.docCache.Store(document)
+		if err != nil {
+			final.LogFatal(err, "could not store new doc in cache")
+		}
+		err = ots.docDb.Store(document)
+		if err != nil {
+			final.LogFatal(err, "could not store new doc in db")
+		}
 	}
 	response, err := util.Serialize(document.file.CurrentChange())
 	if err != nil {
@@ -91,6 +99,12 @@ func (ots OTServer) handleOp(msg util.SessionOTMessage) {
 	version := file.CurrentChange().Version
 	msg.Change.Version = version + 1
 	newChange, err := file.Submit(msg.Change)
+
+	// keep db doc up to date with cache doc
+	dbDoc := ots.docDb.FindById(msg.DocumentId)
+	dbDoc.file = file
+	ots.docDb.Store(dbDoc)
+
 	if err != nil {
 		final.LogFatal(err, "failed to submit change")
 	}
