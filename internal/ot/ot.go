@@ -33,7 +33,7 @@ func NewOTServer(config OTConfig) OTServer {
 func (ots OTServer) Start() {
     // start MultiFileServer
     go func() {
-	ots.s.Start()
+	ots.fileServer.Start()
     }()
 
     for {
