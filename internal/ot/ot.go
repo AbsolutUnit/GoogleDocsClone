@@ -25,11 +25,25 @@ type Document struct {
 func (ots OTServer) Get (html string){
 	//bold, italics, normal, line break
 	for _, op := range ots.Ops {
-		if op.attributes == nil {
-			if string(op.insert) == "\n" {
+		if op.Attributes == nil {
+			if string(op.Insert) == "\n" { //if just line break
 				html += "<br/>"
+			} else { //normal text
+				html += fmt.Sprintf("<p>%s</p>", string(op.Insert))
 			}
-			html += fmt.Sprintf("<p>%s</p>", string(op.insert))
+		}
+		else if { // if attributes exist
+			specialTag := string(op.Insert)
+			value,exists := op.Attributes["bold"]
+			if exists == true {
+				specialTag = "<b>" + specialTag + "</b>"
+			}
+			value,exists = op.Attributes["italic"]
+			if exists == true {
+				specialTag = "<i>" + specialTag + "</i>"
+			}
+			html += specialTag
 		}
 	}
+	return
 }
