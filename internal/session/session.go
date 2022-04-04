@@ -36,19 +36,22 @@ func NewSessionServer(config SessionConfig) (ss SessionServer) {
 // Given a message containing the document id, client id, and transformed change,
 // write appropriate server side events to all those who are editing the document.
 func (ss SessionServer) consumeOTResponse(msg amqp.Delivery) {
-	// needs to be added to the util :(
-	transformed := util.SessionOTMessage{}
-	json.NewDecoder(&transformed).Decode(bytes.NewReader(msg.Body))
-	// NEXT Milestone 1 requires only one document, update this when Milestone 2 comes
-	for i, c := range ss.docs.FindById(transformed.DocumentId).Connections {
+	// TODO Do we need to check any info about the message?
+	transformed, err := util.Deserialize[util.SessionOTMessage](msg.Body)
+	if err != nil {
+		final.LogError(err, "Could not deserialize OT response.")
+	}
+	for _, c := range ss.docs.FindById(transformed.DocumentId).Connections {
 		// write data to c if c.Id() is not transformed.ClientId
-		c.events <- transformed.Change.Delta
+		if c.Id() != transformed.ClientId {
+			c.Events <- &EventData{Data: transformed.Change.Delta}
+		}
 	}
 }
 
 // Listen for new OT transforms
 func (ss SessionServer) Listen() {
-	responses := ss.amqp.Consume(ss.config.ExchangeName, "direct", "session")
+	responses := ss.amqp.Consume(ss.config.ExchangeName, "direct", "session", "session")
 
 	stopping := false
 	for !stopping {
@@ -96,7 +99,7 @@ func (ss SessionServer) retrieveFullDocument(doc SessionDocument, client SSEClie
 	// First, create the serialized data to send to the OT server.
 	msg, err := util.Serialize[util.SessionOTMessage](util.SessionOTMessage{
 		DocumentId: "1", // NEXT Milestone 2
-		ClientId:   client.Account.Id(),
+		ClientId:   client.Id(),
 	})
 	if err != nil {
 		final.LogError(err, "Could not serialize message to OT server.")
@@ -139,6 +142,10 @@ func (ss SessionServer) handleConnect(w http.ResponseWriter, r *http.Request) {
 	existsChan := make(chan bool)
 	go func() {
 		if !exists {
+			doc.Connections[clientId] = SSEClient{
+				id: clientId,
+				Events: make(chan *EventData),
+			}
 			sseData = ss.retrieveFullDocument(doc, client)
 		}
 	}()
