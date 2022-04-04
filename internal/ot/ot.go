@@ -8,6 +8,7 @@ import (
 	"final/internal/rbmq"
 	"github.com/xxuejie/go-delta-ot/ot"
 	"github.com/fmpwizard/go-quilljs-delta/delta"
+	"final/internal/util"
 )
 
 type OTServer struct {
@@ -23,6 +24,10 @@ type Document struct {
 	clientIds []string
 }
 
+func (d Document) Id() string {
+    return d.ID
+}
+
 func NewOTServer(config OTConfig) OTServer {
     ots := OTServer{}
     ots.docs = store.NewMongoDBStore[Document]()
@@ -36,15 +41,41 @@ func (ots OTServer) Start() {
 	ots.fileServer.Start()
     }()
 
-    for {
-	// listen for incoming messages
-	msg := ots.amqp.Consume(ots.config.ExchangeName, "direct", "q", "q")
-	// based on message, do shit
+    // listen for incoming messages
+    msgs := ots.amqp.Consume(ots.config.ExchangeName, "direct", "q", "q")
+
+    for d := range msgs {
+	msg, err := util.Deserialize[util.SessionOTMessage](d)
+	if err != nil {
+	    final.LogFatal(err, "oopsie woopsie")
+	}
+	if msg.DocumentId != "" && msg.ClientId != "" && msg.Change == nil {
+	    ots.handleConnect(msg)
+	} else if msg.DocumentId != "" && msg.ClientId != "" && msg.Change != nil {
+	    ots.handleOp(msg)
+	} else if msg.DocumentId != "" && msg.ClientId == "" && msg.Change == nil {
+	    ots.handleGetDoc(msg)
+	} else {
+	    final.LogFatal(err, "super oopsie woopsie fucky wucky")
+	}
+
 
     }
 }
 
-func (ots OTServer) Get (html string){
+func (ots OTServer) handleConnect(msg util.SessionOTMessage) {
+    // TODO
+}
+
+func (ots OTServer) handleOp(msg util.SessionOTMessage) {
+    // TODO
+}
+
+func (ots OTServer) handleGetDoc(msg util.SessionOTMessage) {
+    // TODO
+}
+
+func (ots OTServer) DocToHTML (html string){
 	//bold, italics, normal, line break
 	for _, op := range ots.Ops {
 		tag := string(op.Insert)

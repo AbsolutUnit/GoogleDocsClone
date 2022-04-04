@@ -1,29 +1,21 @@
 package main
 
 import (
-	"fmt"
+	"final"
+	otPack "final/internal/ot"
+	"os"
 )
-// forever
-// set up listening for incoming queue
-// take in all changes (ignore version)
-// compose deltas
-// declare queue to send back with name
-// send stuff back
-
-func beginListen() { //make queue and bind
-
-}
-
-func beginSpeak() {
-
-}
 
 func main() {
-	beginListen()
-	beginSpeak()
-	for {
-		// compose all deltas
-		// create complement of compose
+	cfgFileName := "config.json"
+	file, err := os.Open(cfgFileName)
+	if err != nil {
+		final.LogFatal(err, "could not load configuration from "+cfgFileName)
 	}
-	
+	config := otPack.NewOTConfig(file)
+	server := otPack.NewOTServer(config)
+	err = server.Start()
+	if err != nil {
+		final.LogFatal(err, "Failed to start OT server.")
+	}
 }
