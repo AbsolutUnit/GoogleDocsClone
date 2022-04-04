@@ -2,7 +2,6 @@ package store
 
 import "final"
 
-
 type InMemoryStore[MODEL Model] struct {
 	store map[string]Model
 }
@@ -19,7 +18,7 @@ func (ims *InMemoryStore[MODEL]) Store(model MODEL) (err error) {
 }
 
 func (ims *InMemoryStore[MODEL]) FindById(id string) (result MODEL) {
-	return  ims.store[id].(MODEL)
+	return ims.store[id].(MODEL)
 }
 
 func (ims *InMemoryStore[MODEL]) FindByKey(key string, value any) (result MODEL) {

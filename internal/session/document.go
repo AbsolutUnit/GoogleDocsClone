@@ -5,12 +5,12 @@ type EventData struct {
 }
 
 type SSEClient struct {
-	id string // ID of the client, not the account
+	id      string // ID of the client, not the account
 	Account Account
 	Events  chan *EventData
 }
 
-func (sc SSEClient) Id() (string) {
+func (sc SSEClient) Id() string {
 	return sc.id
 }
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/http"
 	"os"
 
 	"final"
@@ -16,9 +17,9 @@ func main() {
 	config := session.NewSessionConfig(file)
 
 	server := session.NewSessionServer(config)
-	server.InitRbmq()
 	// Contains starting an HTTP server, should block
-	err = server.Start()
+	go server.Listen()
+	err = http.ListenAndServe(":8080", server)
 	if err != nil {
 		final.LogFatal(err, "Failed to start session server.")
 	}
