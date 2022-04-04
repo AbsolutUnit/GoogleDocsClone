@@ -3,6 +3,7 @@ package ot
 import (
 	"final"
 	"fmt"
+	"strings"
 	"net/http"
 	"final/internal/rbmq"
 	"github.com/xxuejie/go-delta-ot/ot"
@@ -25,25 +26,27 @@ type Document struct {
 func (ots OTServer) Get (html string){
 	//bold, italics, normal, line break
 	for _, op := range ots.Ops {
+		tag := string(op.Insert)
 		if op.Attributes == nil {
-			if string(op.Insert) == "\n" { //if just line break
-				html += "<br/>"
+			if tag == "\n" { //if just line break
+				tag = "<br/>"
 			} else { //normal text
-				html += fmt.Sprintf("<p>%s</p>", string(op.Insert))
+				tag = fmt.Sprintf("<p>%s</p>", tag)
 			}
 		}
 		else if { // if attributes exist
-			specialTag := string(op.Insert)
 			value,exists := op.Attributes["bold"]
 			if exists == true {
-				specialTag = "<b>" + specialTag + "</b>"
+				tag = fmt.Sprintf("<strong>%s</strong>", tag)
 			}
 			value,exists = op.Attributes["italic"]
 			if exists == true {
-				specialTag = "<i>" + specialTag + "</i>"
+				tag = fmt.Sprintf("<em>%s</em>", tag)
 			}
-			html += specialTag
 		}
+		//replace all occurences of \n
+		strings.Replace(tag, "\n", "<br/>", -1)
+		html += tag
 	}
 	return
 }
