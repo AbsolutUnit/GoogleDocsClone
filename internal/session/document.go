@@ -4,14 +4,14 @@ type EventData struct {
 	Data any `json:"data"`
 }
 
-type Connection struct {
+type SSEClient struct {
 	Account Account
-	events chan *EventData
+	Events  chan *EventData
 }
 
 type SessionDocument struct {
-	id 	string
-	Connections []Connection
+	id          string
+	Connections map[string]SSEClient // string is a clientId
 }
 
 func (sd SessionDocument) Id() string {
