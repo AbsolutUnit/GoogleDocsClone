@@ -10,9 +10,9 @@ import (
 type Message map[string]any
 
 type SessionOTMessage struct {
-	DocumentId string
-	ClientId   string
-	Change     ot.Change
+	DocumentId      string
+	ClientId        string
+	MultiFileChange ot.MultiFileChange
 }
 
 func Serialize[Model any](msg Model) ([]byte, error) {
@@ -23,9 +23,9 @@ func Serialize[Model any](msg Model) ([]byte, error) {
 }
 
 func Deserialize[Model any](b []byte) (Model, error) {
-    var msg Model
-    buf := bytes.NewBuffer(b)
-    decoder := json.NewDecoder(buf)
-    err := decoder.Decode(&msg)
-    return msg, err
+	var msg Model
+	buf := bytes.NewBuffer(b)
+	decoder := json.NewDecoder(buf)
+	err := decoder.Decode(&msg)
+	return msg, err
 }
