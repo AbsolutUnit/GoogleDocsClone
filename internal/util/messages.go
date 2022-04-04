@@ -10,9 +10,9 @@ import (
 type Message map[string]any
 
 type SessionOTMessage struct {
-	DocumentId      uint32
-	ClientId        string
-	MultiFileChange ot.MultiFileChange
+	DocumentId uint32
+	ClientId   string
+	Change     ot.Change
 }
 
 func Serialize[Model any](msg Model) ([]byte, error) {
