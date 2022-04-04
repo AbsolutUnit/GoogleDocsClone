@@ -18,7 +18,7 @@ type SessionServer struct {
 	docs   store.Repository[SessionDocument]
 	// NEXT Milestone 2
 	accts        store.Repository[Account]
-	amqp         rbmq.RabbitMq
+	amqp         rbmq.Broker
 	stoppingChan chan bool
 }
 
