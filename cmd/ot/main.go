@@ -14,7 +14,7 @@ func main() {
 	}
 	config := otPack.NewOTConfig(file)
 	server := otPack.NewOTServer(config)
-	err = server.Start()
+	server.Start()
 	if err != nil {
 		final.LogFatal(err, "Failed to start OT server.")
 	}

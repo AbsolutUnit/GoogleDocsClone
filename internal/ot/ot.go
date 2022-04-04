@@ -14,17 +14,17 @@ import (
 )
 
 type OTServer struct {
-	config OTConfig
+	config   OTConfig
 	docCache store.Repository[Document, uint32]
-	docDb   store.Repository[Document, uint32]
-	amqp   rbmq.RabbitMq
+	docDb    store.Repository[Document, uint32]
+	amqp     rbmq.RabbitMq
 }
 
 type Document struct {
-	ID        uint32
-	file 	  *ot.File
+	ID   uint32
+	file *ot.File
 	// Kelvin: why do we have this?
-	clientIds []string
+	clientIds []string // NEXT: M2 keep track of which clients have access to this doc
 }
 
 func (d Document) Id() uint32 {
@@ -56,7 +56,7 @@ func (ots OTServer) Start() {
 	for d := range msgs {
 		msg, err := util.Deserialize[util.SessionOTMessage](d.Body)
 		if err != nil {
-			final.LogFatal(err, "oopsie woopsie")
+			final.LogFatal(err, "failure deserializing message")
 		}
 		if msg.DocumentId != 0 && msg.ClientId != "" && msg.Change.Version == 0 {
 			//go func()
@@ -66,17 +66,17 @@ func (ots OTServer) Start() {
 		} else if msg.DocumentId != 0 && msg.ClientId == "" && msg.Change.Version == 0 {
 			ots.handleGetDoc(msg)
 		} else {
-			final.LogFatal(err, "super oopsie woopsie fucky wucky")
+			final.LogFatal(err, "message does not fit into any of the three cases")
 		}
 	}
 }
 
 // yes DocID, yes ClientID, no Change
 func (ots OTServer) handleConnect(msg util.SessionOTMessage) {
-		document := ots.docDb.FindById(msg.DocumentId)
-		if document.ID == 0 { // if document does not exist
-			document = NewDocument(msg.DocumentId, msg.ClientId)
-		}
+	document := ots.docDb.FindById(msg.DocumentId)
+	if document.ID == 0 { // if document does not exist
+		document = NewDocument(msg.DocumentId, msg.ClientId)
+	}
 	response, err := util.Serialize(document.file.CurrentChange())
 	if err != nil {
 		final.LogError(err, "Could not deserialize document.")
@@ -89,7 +89,7 @@ func (ots OTServer) handleOp(msg util.SessionOTMessage) {
 	// get document version number
 	file := ots.docCache.FindById(msg.DocumentId).file
 	version := file.CurrentChange().Version
-	msg.Change.Version = version+1
+	msg.Change.Version = version + 1
 	newChange, err := file.Submit(msg.Change)
 	if err != nil {
 		final.LogFatal(err, "failed to submit change")
@@ -99,14 +99,17 @@ func (ots OTServer) handleOp(msg util.SessionOTMessage) {
 		msg.ClientId,
 		newChange,
 	}
-	msgBytes, err := util.Serialize[util.SessionOTMessage](newMsg)
+	msgBytes, err := util.Serialize(newMsg)
 	ots.amqp.Publish(ots.config.ExchangeName, "direct", "session", string(msgBytes))
 }
 
 // yes DocID, no ClientID, no Change
 func (ots OTServer) handleGetDoc(msg util.SessionOTMessage) {
 	response := ots.DocToHTML(msg.DocumentId)
-	err = ots.amqp.Publish(ots.config.ExchangeName, "direct", "html", response)
+	err := ots.amqp.Publish(ots.config.ExchangeName, "direct", "html", response)
+	if err != nil {
+		final.LogFatal(err, "could not publish html to queue")
+	}
 }
 
 // TODO : add database saving functionality
