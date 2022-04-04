@@ -7,7 +7,7 @@ quill.on('text-change', update); // might want editor-change
 update();
 
 // connect to event stream
-const ip = "0.0.0.0";
+const ip = "backyardigans.cse356.compas.cs.stonybrook.edu"; 
 const id = generateId();
 const connUrl = "http://" + ip + "/connect/" + id;
 const eventSource = new EventSource(connUrl);
@@ -24,6 +24,15 @@ function update(delta) {
             body: delta.ops
         });
     }
+}
+
+const docbtn = document.getElementById("docbtn")
+const getUrl = "http://" + ip + "/doc/" + id;
+docbtn.onclick = (e) => {
+    console.log("clicked")
+    fetch(getUrl).then(res => {
+        console.log('body: ' + res.body)
+    })
 }
 
 // receive transforms from server and apply them to editor
