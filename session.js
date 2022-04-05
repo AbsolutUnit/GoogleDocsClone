@@ -5,7 +5,7 @@ import ReconnectingWebSocket from 'reconnecting-websocket';
 const Client = require('sharedb/lib/client')
 const Connection = Client.Connection;
 const richText = require('rich-text');
-import dhtml from "quill-delta-to-html"
+import {QuillDeltaToHtmlConverter} from "quill-delta-to-html"
 
 Client.types.register(richText.type)
 
@@ -44,7 +44,7 @@ function handleConnect(req, res, next) {
         'Connection': 'keep-alive',
         'Cache-Control': 'no-cache'
     };
-    response.writeHead(200, headers);
+    res.writeHead(200, headers);
 
 
     const doc = connection.get("docs", "1")
@@ -57,7 +57,7 @@ function handleConnect(req, res, next) {
             })
         } else { // if doc does exist...
             console.log("doc.data: ", doc.data)
-            response.write({data: {content: doc.data}}, (error) => { console.log(error) })
+            res.write({data: {content: doc.data}}, (error) => { console.log(error) })
         }
     })
 
@@ -70,7 +70,7 @@ function handleConnect(req, res, next) {
     // listen for transformed ops
     doc.on('op', (op) => { // think about op batch
         console.log("op", op)
-        response.write({data: op})
+        res.write({data: op})
     })
 }
 
@@ -85,4 +85,11 @@ function handleDoc(req, res, next) {
     console.log("handleDoc req.body: ", req.body)
     clientID = req.params.id
     console.log("clients[clientID]: ", clients[clientID])
+    const snapshot = connection.fetchSnapshot("docs", "1")
+    const deltaOps = snapshot.data.ops
+    const cfg = {}
+    const converter = new QuillDeltaToHtmlConverter(deltaOps, cfg);
+    const html = converter.convert(); 
+    console.log("html", html);
+    res.write(html)
 }
