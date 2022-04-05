@@ -85,8 +85,8 @@ function handleDoc(req, res, next) {
     console.log("handleDoc req.body: ", req.body)
     clientID = req.params.id
     console.log("clients[clientID]: ", clients[clientID])
-    const snapshot = connection.fetchSnapshot("docs", "1")
-    const deltaOps = snapshot.data.ops
+    const doc = connection.get("docs", "1")
+    const deltaOps = doc.data.ops
     const cfg = {}
     const converter = new QuillDeltaToHtmlConverter(deltaOps, cfg);
     const html = converter.convert(); 
