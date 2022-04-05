@@ -1,12 +1,12 @@
-import express, { response } from "express";
-import bodyParser from "body-parser";
-import cors from "cors";
-import ReconnectingWebSocket from 'reconnecting-websocket';
+const express = require("express");
+const bodyParser = require("body-parser");
+const cors = require("cors");
+const WebSocket = require('ws')
+const QuillDeltaToHtmlConverter = require("quill-delta-to-html");
 const Client = require('sharedb/lib/client')
-const Connection = Client.Connection;
 const richText = require('rich-text');
-import {QuillDeltaToHtmlConverter} from "quill-delta-to-html"
 
+const Connection = Client.Connection;
 Client.types.register(richText.type)
 
 // server setup
@@ -17,7 +17,7 @@ app.use(bodyParser.urlencoded({extended: false}));
 app.use(express.static('client')); // serve static files
 
 // sharedb websocket connection setup
-const socket = new ReconnectingWebSocket('ws://localhost:8081')
+var socket = new WebSocket('ws://localhost:8081')
 const connection = new Connection(socket)
 
 // data structures
@@ -25,7 +25,7 @@ const clients = {};
 
 // endpoints
 app.get('/connect/:id', handleConnect);
-app.post('op/:id', handleOp);
+app.post('/op/:id', handleOp);
 app.get('/doc/:id', handleDoc);
 
 app.listen(8080, () => { console.log("Listening on port 8080") });
@@ -33,8 +33,10 @@ app.listen(8080, () => { console.log("Listening on port 8080") });
 // handlers
 
 function handleConnect(req, res, next) {
+    console.log("handleConnect")
     // get client id
-    clientID = req.params.id
+    const clientID = req.params.id
+    // console.log("req: ", req)
 
     // response settings
     const headers = {
@@ -57,7 +59,8 @@ function handleConnect(req, res, next) {
             })
         } else { // if doc does exist...
             console.log("doc.data: ", doc.data)
-            res.write({data: {content: doc.data}}, (error) => { console.log(error) })
+            res.write(JSON.stringify({data: {content: doc.data.ops}}), (error) => { console.log('error: ', error) })
+            res.flushHeaders()
         }
     })
 
@@ -70,26 +73,28 @@ function handleConnect(req, res, next) {
     // listen for transformed ops
     doc.on('op', (op) => { // think about op batch
         console.log("op", op)
-        res.write({data: op})
+        res.write(JSON.stringify({data: op}))
+        res.flushHeaders()
     })
 }
 
 function handleOp (req, res, next) {
-    console.log("handleOp req.body: ", req.body)
+    // console.log("handleOp req.body: ", req)
     const clientID = req.params.id // should we check to make sure this client exists? How do that?
-    console.log("clients[clientID]: ", clients[clientID])
+    console.log("clients[clientID]: ", clients[clientID].clientID)
     clients[clientID].doc.submitOp(req.body)
 }
 
 function handleDoc(req, res, next) {
-    console.log("handleDoc req.body: ", req.body)
-    clientID = req.params.id
-    console.log("clients[clientID]: ", clients[clientID])
+    // console.log("handleDoc req.body: ", req)
+    const clientID = req.params.id
+    console.log("clients[clientID]: ", clients[clientID].clientID)
     const doc = connection.get("docs", "1")
-    const deltaOps = doc.data.ops
+    const deltaOps = doc.data
     const cfg = {}
     const converter = new QuillDeltaToHtmlConverter(deltaOps, cfg);
     const html = converter.convert(); 
     console.log("html", html);
     res.write(html)
+    res.flushHeaders()
 }

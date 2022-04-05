@@ -6,7 +6,8 @@ quill.on('text-change', update); // might want editor-change
 update();
 
 // connect to event stream
-const ip = "backyardigans.cse356.compas.cs.stonybrook.edu"; 
+// const ip = "backyardigans.cse356.compas.cs.stonybrook.edu"; 
+const ip = "localhost:8080"
 const id = generateId();
 const connUrl = "http://" + ip + "/connect/" + id;
 const eventSource = new EventSource(connUrl);
@@ -16,12 +17,14 @@ function update(delta) {
     const contents = quill.getContents();
     console.log('(client side) contents', contents);
     if (delta) { // delta is the new change operation
-        console.log('(client side) change', delta)
+        console.log('(client side) change', delta.ops)
         const opUrl = "http://" + ip + "/op/" + id;
         fetch(opUrl, {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(delta.ops) 
-	});
+	    });
+        console.log("ops", JSON.stringify(delta.ops))
     }
 }
 
@@ -38,6 +41,7 @@ docbtn.onclick = (e) => {
 
 // receive transforms from server and apply them to editor
 eventSource.onmessage = (e) => {
+    console.log("e.data", e.data)
     quill.updateContents(e.data);
 };
 

@@ -1,21 +1,13 @@
 {
-  "name": "final",
+  "name": "session",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "session.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/pnivlek/cse356.git"
-  },
   "author": "",
   "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/pnivlek/cse356/issues"
-  },
-  "homepage": "https://github.com/pnivlek/cse356#readme",
   "dependencies": {
     "body-parser": "^1.20.0",
     "cors": "^2.8.5",
