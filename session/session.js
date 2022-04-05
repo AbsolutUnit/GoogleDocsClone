@@ -122,6 +122,6 @@ async function handleDoc(req, res, next) {
     const converter = new QuillDeltaToHtmlConverter(deltaOps, cfg);
     const html = converter.convert(); 
     console.log("html", html);
-    res.end(html + "\n\n")
+    res.end(html)
     // res.flush()
 }
