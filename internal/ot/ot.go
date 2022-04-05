@@ -32,6 +32,7 @@ func (d Document) Id() uint32 {
 }
 
 func NewDocument(documentID uint32, clientID string) Document {
+	fmt.Println("DEBUG: called NewDocument")
 	document := Document{}
 	//new document is just "\n"
 	document.file = ot.NewFile(delta.Delta{[]delta.Op{delta.Op{Insert: []rune("\n")}}})
@@ -42,6 +43,7 @@ func NewDocument(documentID uint32, clientID string) Document {
 
 func NewOTServer(config OTConfig) OTServer {
 	ots := OTServer{}
+	ots.config = config
 	ots.docCache = store.NewInMemoryStore[Document, uint32]()
 	ots.docDb = store.NewMongoDbStore[Document, uint32](config.Db.Uri, config.Db.DbName, "documents", time.Minute)
 	ots.amqp = rbmq.NewRabbitMq(config.AmqpUrl)
@@ -49,62 +51,68 @@ func NewOTServer(config OTConfig) OTServer {
 }
 
 func (ots OTServer) Start() {
-	// start MultiFileServer
-	// listen for incoming messages
-	msgs := ots.amqp.Consume(ots.config.ExchangeName, "direct", "q", "q")
 
-	for d := range msgs {
-		msg, err := util.Deserialize[util.SessionOTMessage](d.Body)
-		if err != nil {
-			final.LogFatal(err, "failure deserializing message")
-		}
-		if msg.DocumentId != 0 && msg.ClientId != "" && msg.Change.Version == 0 {
-			//go func()
+	go func() {
+		connectMsgs := ots.amqp.Consume(ots.config.ExchangeName, "direct", "", "newClient")
+		for d := range connectMsgs {
+			msg, err := util.Deserialize[util.SessionOTMessage](d.Body)
+			if err != nil {
+				final.LogFatal(err, "failed to deserialize msg from newClient queue")
+			}
 			ots.handleConnect(msg)
-		} else if msg.DocumentId != 0 && msg.ClientId != "" && msg.Change.Version != 0 {
-			ots.handleOp(msg)
-		} else if msg.DocumentId != 0 && msg.ClientId == "" && msg.Change.Version == 0 {
-			ots.handleGetDoc(msg)
-		} else {
-			final.LogFatal(err, "message does not fit into any of the three cases")
 		}
-	}
+	}()
+
+	go func() {
+		opMsgs := ots.amqp.Consume(ots.config.ExchangeName, "direct", "", "ot1")
+		for d := range opMsgs {
+			msg, err := util.Deserialize[util.SessionOTMessage](d.Body)
+			if err != nil {
+				final.LogFatal(err, "failed to deserialize msg from ot1 queue")
+			}
+			ots.handleOp(msg)
+		}
+	}()
+
+	go func() {
+		getDocMsgs := ots.amqp.Consume(ots.config.ExchangeName, "direct", "", "html")
+		for d := range getDocMsgs {
+			msg, err := util.Deserialize[util.SessionOTMessage](d.Body)
+			if err != nil {
+				final.LogFatal(err, "failed to deserialize msg from html queue")
+			}
+			ots.handleGetDoc(msg)
+		}
+	}()
 }
 
 // yes DocID, yes ClientID, no Change
 func (ots OTServer) handleConnect(msg util.SessionOTMessage) {
+	fmt.Println("DEBUG: called handleConnect")
 	document := ots.docDb.FindById(msg.DocumentId)
 	if document.ID == 0 { // if document does not exist
 		document = NewDocument(msg.DocumentId, msg.ClientId)
-		err := ots.docCache.Store(document)
-		if err != nil {
-			final.LogFatal(err, "could not store new doc in cache")
-		}
-		err = ots.docDb.Store(document)
-		if err != nil {
-			final.LogFatal(err, "could not store new doc in db")
-		}
+		ots.docDb.Store(document)
+		ots.docCache.Store(document)
 	}
 	response, err := util.Serialize(document.file.CurrentChange())
 	if err != nil {
 		final.LogError(err, "Could not deserialize document.")
 	}
 	err = ots.amqp.Publish(ots.config.ExchangeName, "direct", "newClient", string(response))
+	if err != nil {
+		final.LogFatal(err, "publish to 'newClient' key failed")
+	}
+	fmt.Println("DEBUG: published to 'newClient' key")
 }
 
 // yes DocID, yes ClientID, yes Change
 func (ots OTServer) handleOp(msg util.SessionOTMessage) {
-	// get document version number
+	fmt.Println("DEBUG: called handleOp")
 	file := ots.docCache.FindById(msg.DocumentId).file
 	version := file.CurrentChange().Version
 	msg.Change.Version = version + 1
 	newChange, err := file.Submit(msg.Change)
-
-	// keep db doc up to date with cache doc
-	dbDoc := ots.docDb.FindById(msg.DocumentId)
-	dbDoc.file = file
-	ots.docDb.Store(dbDoc)
-
 	if err != nil {
 		final.LogFatal(err, "failed to submit change")
 	}
@@ -114,19 +122,23 @@ func (ots OTServer) handleOp(msg util.SessionOTMessage) {
 		newChange,
 	}
 	msgBytes, err := util.Serialize(newMsg)
-	ots.amqp.Publish(ots.config.ExchangeName, "direct", "session", string(msgBytes))
+	err = ots.amqp.Publish(ots.config.ExchangeName, "direct", "session", string(msgBytes))
+	if err != nil {
+		final.LogFatal(err, "failed to publish to 'session' key")
+	}
+	fmt.Println("DEBUG: published to 'session' key")
 }
 
 // yes DocID, no ClientID, no Change
 func (ots OTServer) handleGetDoc(msg util.SessionOTMessage) {
+	fmt.Println("DEBUG: called handleGetDoc")
 	response := ots.DocToHTML(msg.DocumentId)
 	err := ots.amqp.Publish(ots.config.ExchangeName, "direct", "html", response)
 	if err != nil {
 		final.LogFatal(err, "could not publish html to queue")
 	}
+	fmt.Println("DEBUG: published to 'html' key")
 }
-
-// TODO : add database saving functionality
 
 func (ots OTServer) DocToHTML(documentID uint32) (html string) {
 	//bold, italics, normal, line break
@@ -153,5 +165,6 @@ func (ots OTServer) DocToHTML(documentID uint32) (html string) {
 		strings.Replace(tag, "\n", "<br/>", -1)
 		html += tag
 	}
+	fmt.Println("DEBUG: converted html: %v", html)
 	return
 }

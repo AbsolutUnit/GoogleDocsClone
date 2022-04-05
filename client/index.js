@@ -1,4 +1,3 @@
-
 // quill setup
 const quill = new Quill('#editor', {
     theme: 'snow'
@@ -31,7 +30,9 @@ const getUrl = "http://" + ip + "/doc/" + id;
 docbtn.onclick = (e) => {
     console.log("clicked")
     fetch(getUrl).then(res => {
-        console.log('body: ' + res.body)
+	res.text().then(function (text) {
+	    console.log('body: '+ text)	    
+	})
     })
 }
 

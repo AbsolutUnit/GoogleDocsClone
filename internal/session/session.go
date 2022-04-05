@@ -29,9 +29,10 @@ func NewSessionServer(config SessionConfig) (ss SessionServer) {
 	ss.config = config
 	ss.docs = store.NewInMemoryStore[SessionDocument, string]()
 	// NEXT Milestone 2 remove this
-	ss.docs.Store(SessionDocument{id: "1"})
+	ss.docs.Store(SessionDocument{id: "1", Connections: make(map[string]SSEClient)})
 	// NEXT Milestone 2
 	// ss.accts = store.NewMongoDbStore[Account, string](ss.config.Db.Uri, ss.config.Db.DbName, "accounts", time.Minute)
+	final.LogDebug(nil, ss.config.AmqpUrl)
 	ss.amqp = rbmq.NewRabbitMq(ss.config.AmqpUrl)
 	return
 }
@@ -153,19 +154,20 @@ func (ss SessionServer) handleConnect(w http.ResponseWriter, r *http.Request) {
 	// If this client has not connected yet
 	timeout := time.After(1 * time.Second)
 	var sseData []byte
-
 	// Run this in a go func so we can get the existsChan in a channel.
 	existsChan := make(chan bool)
 	go func() {
 		if !exists {
+			final.LogDebug(nil, "in go func, exists is false")
 			doc.Connections[clientId] = SSEClient{
 				id:     clientId,
 				Events: make(chan *EventData),
 			}
 			sseData = ss.retrieveFullDocument(doc, client)
+			final.LogDebug(nil, "retrieveFullDocument called")
 		}
+		final.LogDebug(nil, "in go func, exists is true")
 	}()
-
 	// select the results.
 	select {
 	case msg := <-client.Events:
