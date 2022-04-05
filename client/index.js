@@ -39,6 +39,7 @@ docbtn.onclick = (e) => {
 
 // receive transforms from server and apply them to editor
 eventSource.onmessage = (e) => {
+    console.log("(server side)", e);
     quill.updateContents(e.data);
 };
 

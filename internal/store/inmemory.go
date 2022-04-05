@@ -31,3 +31,14 @@ func (ims *InMemoryStore[MODEL, ID]) FindByKey(key string, value any) (result MO
 	final.LogFatal(nil, "Cannot use FindByKey for inmemory database we should fix this.")
 	return
 }
+
+func (ims *InMemoryStore[MODEL, ID]) FindAll() (result []MODEL) {
+	// Make an empty list, not implemented yet.
+	index := 0
+	result = make([]MODEL, len(ims.store))
+	for k := range ims.store {
+		result[index] = ims.store[k].(MODEL)
+		index += 1
+	}
+	return result
+}

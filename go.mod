@@ -11,6 +11,7 @@ require (
 )
 
 require (
+	github.com/dchenk/go-render-quill v0.0.0-20211110010230-f51106477162 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
