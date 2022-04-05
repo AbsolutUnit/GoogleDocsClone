@@ -33,9 +33,9 @@ const getUrl = "http://" + ip + "/doc/" + id;
 docbtn.onclick = (e) => {
     console.log("clicked")
     fetch(getUrl).then(res => {
-	res.text().then(function (text) {
-	    console.log('body: '+ text)	    
-	})
+        res.text().then(function(text) {
+            console.log("body", text)
+        })
     })
 }
 
