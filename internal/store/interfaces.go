@@ -6,6 +6,6 @@ type Model[ID comparable] interface {
 
 type Repository[MODEL Model[ID], ID comparable] interface {
 	Store(data MODEL) error
-	FindById(id ID) (result MODEL)
+	FindById(id ID) (result MODEL, exists bool)
 	FindByKey(key string, value any) (result MODEL)
 }

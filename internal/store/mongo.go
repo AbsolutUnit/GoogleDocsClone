@@ -45,7 +45,7 @@ func (m *MongoDbStore[MODEL, ID]) Store(model MODEL) (err error) {
 	return
 }
 
-func (m *MongoDbStore[MODEL, ID]) FindById(id ID) (result MODEL) {
+func (m *MongoDbStore[MODEL, ID]) FindById(id ID) (result MODEL, exists bool) {
 	col := m.cli.Database(m.dbName).Collection(m.collection)
 	ctx, cancel := context.WithTimeout(context.Background(), m.timeOutSeconds)
 	defer cancel()
@@ -55,7 +55,7 @@ func (m *MongoDbStore[MODEL, ID]) FindById(id ID) (result MODEL) {
 	if err != nil && err != mongo.ErrNoDocuments {
 		final.LogError(err, "could not look for database object")
 	}
-	return
+	return result, (err != mongo.ErrNoDocuments && err != nil)
 }
 
 func (m *MongoDbStore[MODEL, ID]) FindByKey(key string, value any) (result MODEL) {

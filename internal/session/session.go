@@ -1,12 +1,14 @@
 package session
 
 import (
+	"bytes"
 	"encoding/json"
 	"final"
 	"final/internal/rbmq"
 	"final/internal/store"
 	"final/internal/util"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -32,7 +34,6 @@ func NewSessionServer(config SessionConfig) (ss SessionServer) {
 	ss.docs.Store(SessionDocument{id: "1", Connections: make(map[string]SSEClient)})
 	// NEXT Milestone 2
 	// ss.accts = store.NewMongoDbStore[Account, string](ss.config.Db.Uri, ss.config.Db.DbName, "accounts", time.Minute)
-	final.LogDebug(nil, ss.config.AmqpUrl)
 	ss.amqp = rbmq.NewRabbitMq(ss.config.AmqpUrl)
 	return
 }
@@ -45,7 +46,9 @@ func (ss SessionServer) consumeOTResponse(msg amqp.Delivery) {
 	if err != nil {
 		final.LogError(err, "Could not deserialize OT response.")
 	}
-	for _, c := range ss.docs.FindById(fmt.Sprint(transformed.DocumentId)).Connections {
+	// TODO handle exists
+	doc, _ := ss.docs.FindById(fmt.Sprint(transformed.DocumentId))
+	for _, c := range doc.Connections {
 		// write data to c if c.Id() is not transformed.ClientId
 		if c.Id() != transformed.ClientId {
 			c.Events <- &EventData{Data: transformed.Change.Delta}
@@ -102,22 +105,22 @@ func (ss SessionServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // Get the entire document as a []byte to send back to the client over SSE.
-func (ss SessionServer) retrieveFullDocument(doc SessionDocument, client SSEClient) []byte {
+func (ss SessionServer) retrieveFullDocument(doc SessionDocument, clientId string) []byte {
 	// First, create the serialized data to send to the OT server.
 	msg, err := util.Serialize(util.SessionOTMessage{
 		DocumentId: 1, // NEXT Milestone 2
-		ClientId:   client.Id(),
+		ClientId: clientId,
 	})
 	if err != nil {
 		final.LogError(err, "Could not serialize message to OT server.")
 	}
 	// NEXT Milestone 3 change "ot1" to "ot" + documentId % 10
 	// Next, let's send the message.
-	err = ss.amqp.Publish(ss.config.ExchangeName, "direct", "newClient", string(msg))
+	err = ss.amqp.Publish(ss.config.ExchangeName, "direct", "newClientOT", string(msg))
 	if err != nil {
 		final.LogError(err, "Could not publish message to AMQP.")
 	}
-	responses := ss.amqp.Consume(ss.config.ExchangeName, "direct", "", "newClient")
+	responses := ss.amqp.Consume(ss.config.ExchangeName, "direct", "", "newClientSession")
 	if err != nil {
 		final.LogError(err, "Could not consume message from OT server.")
 	}
@@ -139,42 +142,48 @@ func clientIdFromRequest(r *http.Request) string {
 
 func (ss SessionServer) handleConnect(w http.ResponseWriter, r *http.Request) {
 	clientId := clientIdFromRequest(r)
-	final.LogDebug(nil, fmt.Sprintf("Found clientId: %s", clientId))
+	// final.LogDebug(nil, fmt.Sprintf("Found clientId: %s", clientId))
 
 	// NEXT M2: doc with ClientID in SSEClient inClients slice
-	doc := ss.docs.FindById("1")
+	// TODO handle exists
+	doc, _ := ss.docs.FindById("1")
+	fmt.Println("Trying to find doc")
+	if len(doc.Connections) == 0 {
+	    fmt.Println("No Connections on Doc")
+	}
 	// NEXT if no doc exists, create OTDocument - not issue for M1
+
 	client, exists := doc.Connections[clientId]
-	final.LogDebug(nil, fmt.Sprintf("Checked for client in storage. Exists: %t", exists))
+	// final.LogDebug(nil, fmt.Sprintf("Checked for client in storage. Exists: %t", exists))
 
 	// SSE headers.
 	ss.addSSEHeaders(w)
-	final.LogDebug(nil, "Added SSE headers.")
 
 	// If this client has not connected yet
-	timeout := time.After(1 * time.Second)
+	timeout := time.After(3 * time.Second)
 	var sseData []byte
 	// Run this in a go func so we can get the existsChan in a channel.
-	existsChan := make(chan bool)
+	existsChan := make(chan []byte)
 	go func() {
+		final.LogDebug(nil, fmt.Sprintf("in go func, exists is %t", exists))
 		if !exists {
-			final.LogDebug(nil, "in go func, exists is false")
+			sseData = ss.retrieveFullDocument(doc, clientId)
 			doc.Connections[clientId] = SSEClient{
 				id:     clientId,
 				Events: make(chan *EventData),
 			}
-			sseData = ss.retrieveFullDocument(doc, client)
-			final.LogDebug(nil, "retrieveFullDocument called")
+			existsChan <- sseData
 		}
-		final.LogDebug(nil, "in go func, exists is true")
 	}()
 	// select the results.
 	select {
 	case msg := <-client.Events:
 		sseData, _ = util.Serialize(*msg)
-		fmt.Fprintf(w, "%v", sseData)
-	case <-existsChan:
-		fmt.Fprintf(w, "%v", sseData)
+		final.LogDebug(nil, fmt.Sprintf("[%s][out][op] %s %s", r.Method, r.URL.Path, sseData))
+		fmt.Fprintf(w, "%s", sseData)
+	case data := <-existsChan:
+		final.LogDebug(nil, fmt.Sprintf("[%s][out][doc] %s %s", r.Method, r.URL.Path, sseData))
+		fmt.Fprintf(w, "%s", data)
 	case <-timeout:
 	}
 
@@ -189,9 +198,21 @@ func (ss SessionServer) handleOp(w http.ResponseWriter, r *http.Request) {
 		DocumentId: 1, // NEXT Milestone 1 specific
 		ClientId:   clientId,
 	}
+
+	buf2, bodyErr2 := ioutil.ReadAll(r.Body)
+	if bodyErr2 != nil {
+		http.Error(w, bodyErr2.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	rdr1 := ioutil.NopCloser(bytes.NewBuffer(buf2))
+	rdr2 := ioutil.NopCloser(bytes.NewBuffer(buf2))
+	final.LogDebug(nil, fmt.Sprintf("[in][%s] %s Body: %s", r.Method, r.URL.Path, rdr1))
+	r.Body = rdr2
+
 	if r.Method == http.MethodPost {
 		bodyDelta := delta.Delta{}
-		json.NewDecoder(r.Body).Decode(&bodyDelta)
+		json.NewDecoder(r.Body).Decode(&bodyDelta.Ops)
 		// NEXT Milestone ??? - does this have version in it?
 		msg.Change.Delta = &bodyDelta
 	}
@@ -199,6 +220,7 @@ func (ss SessionServer) handleOp(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		final.LogError(err, "Could not serialize sent op.")
 	}
+	final.LogDebug(nil, fmt.Sprintf("[session -> ot1][%s] %s %s", r.Method, r.URL.Path, msgBytes))
 	err = ss.amqp.Publish(ss.config.ExchangeName, "direct", "ot1", string(msgBytes))
 	if err != nil {
 		final.LogError(err, "Could not publish op to amqp.")

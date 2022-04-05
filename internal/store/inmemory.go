@@ -17,8 +17,14 @@ func (ims *InMemoryStore[MODEL, ID]) Store(model MODEL) (err error) {
 	return nil
 }
 
-func (ims *InMemoryStore[MODEL, ID]) FindById(id ID) (result MODEL) {
-	return ims.store[id].(MODEL)
+func (ims *InMemoryStore[MODEL, ID]) FindById(id ID) (result MODEL, exists bool) {
+	res, exists := ims.store[id]
+	if exists {
+		return res.(MODEL), exists
+	} else {
+		model := new(MODEL)
+		return *model, exists
+	}
 }
 
 func (ims *InMemoryStore[MODEL, ID]) FindByKey(key string, value any) (result MODEL) {

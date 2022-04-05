@@ -14,10 +14,14 @@ type RabbitMq struct {
 
 func NewRabbitMq(dialUrl string) RabbitMq {
 	conn, err := amqp.Dial(dialUrl)
-	final.LogFatal(err, "Could not connect to amqp server.")
+	if err != nil {
+		final.LogFatal(err, "Could not connect to amqp server.")
+	}
 
 	ch, err := conn.Channel()
-	final.LogFatal(err, "Failed to open a channel")
+	if err != nil {
+		final.LogFatal(err, "Failed to open a channel")
+	}
 
 	return RabbitMq{
 		conn: conn,
@@ -40,16 +44,25 @@ func (rm RabbitMq) Consume(exchangeName, exchangeType, queueName, key string) <-
 		false,
 		nil,
 	)
-	final.LogFatal(err, "Failed to declare an exchange.")
+	if err != nil {
+		final.LogFatal(err, "Failed to declare an exchange.")
+	}
 
 	q, err := rm.ch.QueueDeclare(queueName, true, false, true, false, nil)
+	if err != nil {
+		final.LogFatal(err, "Failed to declare a queue.")
+	}
 
 	// Bind to the queue.
 	err = rm.ch.QueueBind(q.Name, key, exchangeName, false, nil)
-	final.LogFatal(err, "Failed to bind to the queue.")
+	if err != nil {
+		final.LogFatal(err, "Failed to bind to the queue.")
+	}
 
 	responses, err := rm.ch.Consume(q.Name, "", true, false, false, false, nil)
-	final.LogFatal(err, "Failed to start consuming from OT servers. Have you initialized RabbitMQ?")
+	if err != nil {
+		final.LogFatal(err, "Failed to start consuming from OT servers. Have you initialized RabbitMQ?")
+	}
 
 	return responses
 }
@@ -64,15 +77,19 @@ func (rm RabbitMq) Publish(exchangeName, exchangeType, key, message string) erro
 		false,
 		nil,
 	)
-	final.LogFatal(err, "Failed to declare an exchange.")
+	if err != nil {
+		final.LogFatal(err, "Failed to declare an exchange.")
+	}
 
 	err = rm.ch.Publish(exchangeName, key, true, false, amqp.Publishing{
 		ContentType: "text/plain",
 		Body:        []byte(message),
 	})
-	final.LogFatal(err,
-		fmt.Sprintf("Failed to publish message %0.15s to exchange %0.15s key %0.15s",
-			message, exchangeName, key))
+	if err != nil {
+		final.LogFatal(err,
+			fmt.Sprintf("Failed to publish message %0.15s to exchange %0.15s key %0.15s",
+				message, exchangeName, key))
+	}
 
 	return err
 }
