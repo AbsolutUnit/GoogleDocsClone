@@ -1,3 +1,4 @@
+
 // quill setup
 const quill = new Quill('#editor', {
     theme: 'snow'
@@ -14,14 +15,14 @@ const eventSource = new EventSource(connUrl);
 // send new operation to server
 function update(delta) {
     const contents = quill.getContents();
-    console.log('contents', contents);
+    console.log('(client side) contents', contents);
     if (delta) { // delta is the new change operation
-        console.log('change', delta)
+        console.log('(client side) change', delta)
         const opUrl = "http://" + ip + "/op/" + id;
         fetch(opUrl, {
             method: 'POST',
-            body: delta.ops
-        });
+            body: JSON.stringify(delta.ops) 
+	});
     }
 }
 
