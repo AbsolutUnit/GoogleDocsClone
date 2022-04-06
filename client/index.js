@@ -23,7 +23,7 @@ function update(delta) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify([delta.ops]) 
 	    });
-        console.log("ops", JSON.stringify([delta.ops]))
+        console.log("(client side) ops", JSON.stringify([delta.ops]))
     }
 }
 

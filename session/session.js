@@ -54,23 +54,20 @@ function handleConnect(req, res, next) {
         'Cache-Control': 'no-cache'
     };
     res.writeHead(200, headers);
+    res.flushHeaders()
 
     const doc = connection.get("docs", "1")
     doc.subscribe((error) => {
-        // if (error) return console.log(error)
+        if (error) return console.log(error)
 
         // sse.send(JSON.stringify({data: {content: doc.data.ops}}))
-
-        
         if (!doc.type) {
             doc.create([{insert: '\n'}], 'http://sharejs.org/types/rich-text/v1')
         } else { // if doc does exist...
             // console.log("handleConnect doc.data: ", doc.data)
-            res.write(JSON.stringify({content: doc.data.ops}) +
-		    "\n\n", (error) => { 
-		    // console.log('error: ', error) 
-	    })
-            res.flushHeaders()
+            const data = `data: ${JSON.stringify({content: doc.data.ops})}\n\n`
+            console.log("doc data", data)
+            res.write(data)
         }
     })
 
@@ -82,18 +79,18 @@ function handleConnect(req, res, next) {
 
     // listen for transformed ops
     doc.on('op', (op) => { // think about op batch
-        // console.log("transformed op ", op)
+        console.log("transformed op ", op)
         // sse.send(JSON.stringify({data: op}))
-        res.write(JSON.stringify({ops: op}) + "\n\n")
-        res.flushHeaders()
+        const data = `data: ${JSON.stringify({ops: op})}\n\n`
+        res.write(data)
     })
 }
 
-async function handleOp(req, res, next) {
+function handleOp(req, res, next) {
     console.log("op req.body ", req.body) 
     // console.log("handleOp req.body ", req.body)
     const clientID = req.params.id // should we check to make sure this client exists? How do that?
-    clients[clientID].doc.submitOp(req.body)
+    // clients[clientID].doc.submitOp(req.body)
     /*
     if (!(clientID in clients)) {
 	await handleConnect(req, res, next)
@@ -103,10 +100,10 @@ async function handleOp(req, res, next) {
     }
     */
     // console.log("clients[clientID]: ", clients[clientID].clientID)
-    // for (let op of req.body) {
-	// console.log("op to be submitted ", op)
-	// clients[clientID].doc.submitOp(op)
-    // }
+    for (let op of req.body) {
+        console.log("op to be submitted ", op)
+        clients[clientID].doc.submitOp(op)
+    }
 }
 
 function handleDoc(req, res, next) {
