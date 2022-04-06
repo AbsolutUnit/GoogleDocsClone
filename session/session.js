@@ -25,6 +25,10 @@ app.use(express.static('client')); // serve static files
 var socket = new WebSocket('ws://localhost:8081')
 const connection = new Connection(socket)
 
+// create doc
+const doc = connection.get("docs", "1")
+doc.create([{insert: '\n'}], 'http://sharejs.org/types/rich-text/v1')
+
 // data structures
 const clients = {};
 
@@ -39,8 +43,9 @@ app.listen(8080, () => {
 
 // const sse = new SSE(doc.data) // doc.data.ops
 
+
 function handleConnect(req, res, next) {
-    // console.log("handleConnect")
+    console.log("handleConnect")
     // get client id
     const clientID = req.params.id
     // console.log("req: ", req)
@@ -56,21 +61,13 @@ function handleConnect(req, res, next) {
     res.writeHead(200, headers);
     res.flushHeaders()
 
-    const doc = connection.get("docs", "1")
     doc.subscribe((error) => {
         if (error) return console.log(error)
-
-        // sse.send(JSON.stringify({data: {content: doc.data.ops}}))
-        if (!doc.type) {
-            doc.create([{insert: '\n'}], 'http://sharejs.org/types/rich-text/v1')
-        } else { // if doc does exist...
-            // console.log("handleConnect doc.data: ", doc.data)
-            const data = `data: ${JSON.stringify({content: doc.data.ops})}\n\n`
-            console.log("doc data", data)
-            res.write(data)
-        }
+        const data = `data: ${JSON.stringify({content: doc.data.ops})}\n\n`
+        console.log("doc data", data)
+        res.write(data)
     })
-
+    
     // add client to clients data structure if not already in there
     clients[clientID] = {
         clientID,
