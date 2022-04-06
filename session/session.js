@@ -33,20 +33,14 @@ app.get('/connect/:id', handleConnect);
 app.post('/op/:id', handleOp);
 app.get('/doc/:id', handleDoc);
 
-app.listen(8080, () => { console.log("Listening on port 8080") });
+app.listen(8080, () => { 
+    // console.log("Listening on port 8080") 
+});
 
-// handlers
-
-// const doc = connection.get("docs", "1")
-// if (!doc.type) {
-//     doc.create([{insert: '\n'}], 'http://sharejs.org/types/rich-text/v1', (error) => {
-//         if (error) console.log(error)
-//     })
-// }
 // const sse = new SSE(doc.data) // doc.data.ops
 
 function handleConnect(req, res, next) {
-    console.log("handleConnect")
+    // console.log("handleConnect")
     // get client id
     const clientID = req.params.id
     // console.log("req: ", req)
@@ -60,24 +54,23 @@ function handleConnect(req, res, next) {
         'Cache-Control': 'no-cache'
     };
     res.writeHead(200, headers);
-    res.flushHeaders()
 
     const doc = connection.get("docs", "1")
     doc.subscribe((error) => {
-        if (error) return console.log(error)
+        // if (error) return console.log(error)
 
         // sse.send(JSON.stringify({data: {content: doc.data.ops}}))
 
         
         if (!doc.type) {
-            doc.create([{insert: '\n'}], 'http://sharejs.org/types/rich-text/v1', (error) => {
-                if (error) console.log(error)
-            })
+            doc.create([{insert: '\n'}], 'http://sharejs.org/types/rich-text/v1')
         } else { // if doc does exist...
-            console.log("doc.data: ", doc.data)
-            res.write("data: " + JSON.stringify({data: {content: doc.data.ops}}) + "\n\n", (error) => { console.log('error: ', error) })
-            // res.flush()
-            // res.flushHeaders()
+            // console.log("handleConnect doc.data: ", doc.data)
+            res.write(JSON.stringify({content: doc.data.ops}) +
+		    "\n\n", (error) => { 
+		    // console.log('error: ', error) 
+	    })
+            res.flushHeaders()
         }
     })
 
@@ -89,39 +82,49 @@ function handleConnect(req, res, next) {
 
     // listen for transformed ops
     doc.on('op', (op) => { // think about op batch
-        console.log("op", op)
+        // console.log("transformed op ", op)
         // sse.send(JSON.stringify({data: op}))
-        res.write("data: " + JSON.stringify({data: op}) + "\n\n")
-        // res.flush()
-        // res.flushHeaders()
+        res.write(JSON.stringify({ops: op}) + "\n\n")
+        res.flushHeaders()
     })
 }
 
-function handleOp (req, res, next) {
-    // console.log("handleOp req.body: ", req)
+async function handleOp(req, res, next) {
+    console.log("op req.body ", req.body) 
+    // console.log("handleOp req.body ", req.body)
     const clientID = req.params.id // should we check to make sure this client exists? How do that?
-    console.log("clients[clientID]: ", clients[clientID].clientID)
     clients[clientID].doc.submitOp(req.body)
+    /*
+    if (!(clientID in clients)) {
+	await handleConnect(req, res, next)
+	clients[clientID].doc.submitOp(req.body)
+    } else {
+	clients[clientID].doc.submitOp(req.body)
+    }
+    */
+    // console.log("clients[clientID]: ", clients[clientID].clientID)
+    // for (let op of req.body) {
+	// console.log("op to be submitted ", op)
+	// clients[clientID].doc.submitOp(op)
+    // }
 }
 
-async function handleDoc(req, res, next) {
-
+function handleDoc(req, res, next) {
     const headers = {
         "X-CSE356": "61f9d48d3e92a433bf4fc893",
         'Access-Control-Allow-Origin': '*',
     };
     res.writeHead(200, headers);
     // console.log("handleDoc req.body: ", req)
-    const clientID = req.params.id
+    const clientID = req.params.id;
     //console.log("clients[clientID]: ", clients[clientID].clientID)
-    const doc = connection.get("docs", "1")
+    const doc = connection.get("docs", "1");
     const deltaOps = doc.data.ops
     //console.log("deltaOps", deltaOps)
-    const cfg = {}
+    const cfg = {};
     // const QuillDeltaToHtmlConverter = await require("quill-delta-to-html");
     const converter = new QuillDeltaToHtmlConverter(deltaOps, cfg);
     const html = converter.convert(); 
-    console.log("html", html);
-    res.end(html)
-    // res.flush()
+    // console.log("html ", html);
+    res.end(html);
 }

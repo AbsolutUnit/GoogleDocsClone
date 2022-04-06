@@ -3,11 +3,10 @@ const quill = new Quill('#editor', {
     theme: 'snow'
 });
 quill.on('text-change', update); // might want editor-change
-update();
 
 // connect to event stream
-// const ip = "backyardigans.cse356.compas.cs.stonybrook.edu"; 
-const ip = "localhost:8080"
+const ip = "backyardigans.cse356.compas.cs.stonybrook.edu"; 
+// const ip = "localhost:8080";
 const id = generateId();
 const connUrl = "http://" + ip + "/connect/" + id;
 const eventSource = new EventSource(connUrl);
@@ -22,9 +21,9 @@ function update(delta) {
         fetch(opUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(delta.ops) 
+            body: JSON.stringify([delta.ops]) 
 	    });
-        console.log("ops", JSON.stringify(delta.ops))
+        console.log("ops", JSON.stringify([delta.ops]))
     }
 }
 
