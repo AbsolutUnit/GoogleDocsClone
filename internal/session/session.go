@@ -1,26 +1,22 @@
 package session
 
 import (
-	"bytes"
 	"encoding/json"
 	"final"
 	"final/internal/rbmq"
 	"final/internal/store"
 	"final/internal/util"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/fmpwizard/go-quilljs-delta/delta"
-	"github.com/streadway/amqp"
 )
 
 type SessionServer struct {
-	config SessionConfig
-	docs   store.Repository[SessionDocument, string]
-	// NEXT Milestone 2
+	config       SessionConfig
+	docs         store.Repository[SessionDocument, string]
 	accts        store.Repository[Account, string]
 	amqp         rbmq.Broker
 	stoppingChan chan bool
@@ -30,10 +26,7 @@ func NewSessionServer(config SessionConfig) (ss SessionServer) {
 	ss = SessionServer{}
 	ss.config = config
 	ss.docs = store.NewInMemoryStore[SessionDocument, string]()
-	// NEXT Milestone 2 remove this
-	ss.docs.Store(SessionDocument{id: "1", Connections: make(map[string]SSEClient)})
-	// NEXT Milestone 2
-	// ss.accts = store.NewMongoDbStore[Account, string](ss.config.Db.Uri, ss.config.Db.DbName, "accounts", time.Minute)
+	ss.accts = store.NewMongoDbStore[Account, string](ss.config.Db.Uri, ss.config.Db.DbName, "accounts", time.Minute)
 	ss.amqp = rbmq.NewRabbitMq(ss.config.AmqpUrl)
 	return
 }
@@ -57,7 +50,7 @@ func (ss SessionServer) consumeOTResponse(msg amqp.Delivery) {
 }
 
 // Listen for new OT transforms
-func (ss SessionServer) Listen() {
+func (ss SessionServer) Consume() {
 	responses := ss.amqp.Consume(ss.config.ExchangeName, "direct", "session", "session")
 
 	stopping := false
@@ -109,7 +102,7 @@ func (ss SessionServer) retrieveFullDocument(doc SessionDocument, clientId strin
 	// First, create the serialized data to send to the OT server.
 	msg, err := util.Serialize(util.SessionOTMessage{
 		DocumentId: 1, // NEXT Milestone 2
-		ClientId: clientId,
+		ClientId:   clientId,
 	})
 	if err != nil {
 		final.LogError(err, "Could not serialize message to OT server.")
@@ -149,7 +142,7 @@ func (ss SessionServer) handleConnect(w http.ResponseWriter, r *http.Request) {
 	doc, _ := ss.docs.FindById("1")
 	fmt.Println("Trying to find doc")
 	if len(doc.Connections) == 0 {
-	    fmt.Println("No Connections on Doc")
+		fmt.Println("No Connections on Doc")
 	}
 	// NEXT if no doc exists, create OTDocument - not issue for M1
 
@@ -198,17 +191,6 @@ func (ss SessionServer) handleOp(w http.ResponseWriter, r *http.Request) {
 		DocumentId: 1, // NEXT Milestone 1 specific
 		ClientId:   clientId,
 	}
-
-	buf2, bodyErr2 := ioutil.ReadAll(r.Body)
-	if bodyErr2 != nil {
-		http.Error(w, bodyErr2.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	rdr1 := ioutil.NopCloser(bytes.NewBuffer(buf2))
-	rdr2 := ioutil.NopCloser(bytes.NewBuffer(buf2))
-	final.LogDebug(nil, fmt.Sprintf("[in][%s] %s Body: %s", r.Method, r.URL.Path, rdr1))
-	r.Body = rdr2
 
 	if r.Method == http.MethodPost {
 		bodyDelta := delta.Delta{}

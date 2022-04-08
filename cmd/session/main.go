@@ -17,8 +17,9 @@ func main() {
 	config := session.NewSessionConfig(file)
 
 	server := session.NewSessionServer(config)
-	// Contains starting an HTTP server, should block
-	go server.Listen()
+	// Consume messages from the OT server
+	go server.Consume()
+	// Start the http server part
 	err = http.ListenAndServe(":8080", server)
 	if err != nil {
 		final.LogFatal(err, "Failed to start session server.")
