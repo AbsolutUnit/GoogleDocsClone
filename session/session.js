@@ -2,12 +2,9 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const WebSocket = require('ws')
-<<<<<<< HEAD
-=======
 const ReconnectingWebSocket = require('reconnecting-websocket')
 const wsOptions = {WebSocket : WebSocket}
 // const QuillDeltaToHtmlConverter = require("quill-delta-to-html");
->>>>>>> dd2070dfdca7b626043ff1d52e86678e24fca2c4
 const QuillDeltaToHtmlConverter = require('quill-delta-to-html').QuillDeltaToHtmlConverter;
 const Client = require('sharedb/lib/client')
 const richText = require('rich-text');
@@ -81,16 +78,6 @@ function handleConnect(req, res, next) {
         clientID,
         doc
     }
-
-<<<<<<< HEAD
-    // listen for transformed ops
-    doc.on('op', (op) => { // think about op batch
-        console.log("transformed op ", op)
-        const data = `data: ${JSON.stringify({ops: op})}\n\n`
-        res.write(data)
-    })
-=======
->>>>>>> dd2070dfdca7b626043ff1d52e86678e24fca2c4
 }
 
 function handleOp(req, res, next) {
