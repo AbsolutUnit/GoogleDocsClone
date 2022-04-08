@@ -1,11 +1,7 @@
 const express = require("express");
-// const SSE = require("express-sse")
-// const compression = require("compression")
-// const sseExpress = require("sse-express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const WebSocket = require('ws')
-// const QuillDeltaToHtmlConverter = require("quill-delta-to-html");
 const QuillDeltaToHtmlConverter = require('quill-delta-to-html').QuillDeltaToHtmlConverter;
 const Client = require('sharedb/lib/client')
 const richText = require('rich-text');
@@ -15,7 +11,6 @@ Client.types.register(richText.type)
 
 // server setup
 const app = express();
-// app.use( compression() )
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: false}));
@@ -40,9 +35,6 @@ app.get('/doc/:id', handleDoc);
 app.listen(8080, () => { 
     // console.log("Listening on port 8080") 
 });
-
-// const sse = new SSE(doc.data) // doc.data.ops
-
 
 function handleConnect(req, res, next) {
     console.log("handleConnect")
@@ -77,7 +69,6 @@ function handleConnect(req, res, next) {
     // listen for transformed ops
     doc.on('op', (op) => { // think about op batch
         console.log("transformed op ", op)
-        // sse.send(JSON.stringify({data: op}))
         const data = `data: ${JSON.stringify({ops: op})}\n\n`
         res.write(data)
     })
@@ -87,15 +78,6 @@ function handleOp(req, res, next) {
     console.log("op req.body ", req.body) 
     // console.log("handleOp req.body ", req.body)
     const clientID = req.params.id // should we check to make sure this client exists? How do that?
-    // clients[clientID].doc.submitOp(req.body)
-    /*
-    if (!(clientID in clients)) {
-	await handleConnect(req, res, next)
-	clients[clientID].doc.submitOp(req.body)
-    } else {
-	clients[clientID].doc.submitOp(req.body)
-    }
-    */
     // console.log("clients[clientID]: ", clients[clientID].clientID)
     for (let op of req.body) {
         console.log("op to be submitted ", op)
@@ -116,7 +98,6 @@ function handleDoc(req, res, next) {
     const deltaOps = doc.data.ops
     //console.log("deltaOps", deltaOps)
     const cfg = {};
-    // const QuillDeltaToHtmlConverter = await require("quill-delta-to-html");
     const converter = new QuillDeltaToHtmlConverter(deltaOps, cfg);
     const html = converter.convert(); 
     // console.log("html ", html);
