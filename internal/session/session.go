@@ -107,16 +107,19 @@ func (ss SessionServer) retrieveFullDocument(doc SessionDocument, clientId strin
 	if err != nil {
 		final.LogError(err, "Could not serialize message to OT server.")
 	}
-	// NEXT Milestone 3 change "ot1" to "ot" + documentId % 10
-	// Next, let's send the message.
-	err = ss.amqp.Publish(ss.config.ExchangeName, "direct", "newClientOT", string(msg))
+
+	// Send the message to the OT server.
+	ch, err := ss.amqp.Publish(ss.config.ExchangeName, "direct", "ot1", string(msg))
 	if err != nil {
 		final.LogError(err, "Could not publish message to AMQP.")
 	}
-	responses := ss.amqp.Consume(ss.config.ExchangeName, "direct", "", "newClientSession")
+	defer ch.Close()
+
+	ch, responses := ss.amqp.Consume(ss.config.ExchangeName, "direct", "", "newClient")
 	if err != nil {
 		final.LogError(err, "Could not consume message from OT server.")
 	}
+
 	sseMsg, err := util.Deserialize[util.SessionOTMessage]((<-responses).Body)
 	if err != nil {
 		final.LogError(err, "Could not deserialize message from OT server.")
@@ -203,10 +206,11 @@ func (ss SessionServer) handleOp(w http.ResponseWriter, r *http.Request) {
 		final.LogError(err, "Could not serialize sent op.")
 	}
 	final.LogDebug(nil, fmt.Sprintf("[session -> ot1][%s] %s %s", r.Method, r.URL.Path, msgBytes))
-	err = ss.amqp.Publish(ss.config.ExchangeName, "direct", "ot1", string(msgBytes))
+	ch, err := ss.amqp.Publish(ss.config.ExchangeName, "direct", "ot1", string(msgBytes))
 	if err != nil {
 		final.LogError(err, "Could not publish op to amqp.")
 	}
+	defer ch.Close()
 }
 
 func (ss SessionServer) handleDoc(w http.ResponseWriter, r *http.Request) {
@@ -219,10 +223,13 @@ func (ss SessionServer) handleDoc(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			final.LogError(err, "Could not serialize sent op.")
 		}
-		ss.amqp.Publish(ss.config.ExchangeName, "direct", "ot1", string(msgBytes))
+		ch, err := ss.amqp.Publish(ss.config.ExchangeName, "direct", "ot1", string(msgBytes))
+		defer ch.Close()
 
 		timeout := time.After(10 * time.Second)
-		response := ss.amqp.Consume(ss.config.ExchangeName, "direct", "", "html")
+		ch, response := ss.amqp.Consume(ss.config.ExchangeName, "direct", "", "html")
+		defer ch.Close()
+
 		select {
 		case <-timeout:
 			final.LogError(nil, "Timed out waiting for HTML response.")

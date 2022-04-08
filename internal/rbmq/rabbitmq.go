@@ -9,33 +9,37 @@ import (
 
 type RabbitMq struct {
 	conn *amqp.Connection
-	ch   *amqp.Channel
 }
 
 func NewRabbitMq(dialUrl string) RabbitMq {
+	// Test connection
 	conn, err := amqp.Dial(dialUrl)
 	if err != nil {
 		final.LogFatal(err, "Could not connect to amqp server.")
 	}
+	rm := RabbitMq{
+		conn,
+	}
 
-	ch, err := conn.Channel()
+	// Setup a channel to make sure we can.
+	ch := rm.setupChannel()
+	ch.Close()
+
+	return rm
+}
+
+func (rm RabbitMq) setupChannel() *amqp.Channel {
+	ch, err := rm.conn.Channel()
 	if err != nil {
 		final.LogFatal(err, "Failed to open a channel")
 	}
-
-	return RabbitMq{
-		conn: conn,
-		ch:   ch,
-	}
+	return ch
 }
 
-func (rm RabbitMq) Close() {
-	defer rm.conn.Close()
-	defer rm.ch.Close()
-}
+func (rm RabbitMq) Consume(exchangeName, exchangeType, queueName, key string) (*amqp.Channel, <-chan amqp.Delivery) {
+	ch := rm.setupChannel()
 
-func (rm RabbitMq) Consume(exchangeName, exchangeType, queueName, key string) <-chan amqp.Delivery {
-	err := rm.ch.ExchangeDeclare(
+	err := ch.ExchangeDeclare(
 		exchangeName,
 		exchangeType,
 		true,
@@ -45,30 +49,32 @@ func (rm RabbitMq) Consume(exchangeName, exchangeType, queueName, key string) <-
 		nil,
 	)
 	if err != nil {
-		final.LogFatal(err, "Failed to declare an exchange.")
+		final.LogFatal(err, "Failed to declare the exchange.")
 	}
 
-	q, err := rm.ch.QueueDeclare(queueName, true, false, true, false, nil)
+	q, err := ch.QueueDeclare(queueName, true, false, true, false, nil)
 	if err != nil {
-		final.LogFatal(err, "Failed to declare a queue.")
+		final.LogFatal(err, "Failed to declare the queue.")
 	}
 
 	// Bind to the queue.
-	err = rm.ch.QueueBind(q.Name, key, exchangeName, false, nil)
+	err = ch.QueueBind(q.Name, key, exchangeName, false, nil)
 	if err != nil {
 		final.LogFatal(err, "Failed to bind to the queue.")
 	}
 
-	responses, err := rm.ch.Consume(q.Name, "", true, false, false, false, nil)
+	responses, err := ch.Consume(q.Name, "", true, false, false, false, nil)
 	if err != nil {
 		final.LogFatal(err, "Failed to start consuming from OT servers. Have you initialized RabbitMQ?")
 	}
 
-	return responses
+	return ch, responses
 }
 
-func (rm RabbitMq) Publish(exchangeName, exchangeType, key, message string) error {
-	err := rm.ch.ExchangeDeclare(
+func (rm RabbitMq) Publish(exchangeName, exchangeType, key, message string) (*amqp.Channel, error) {
+	ch := rm.setupChannel()
+
+	err := ch.ExchangeDeclare(
 		exchangeName,
 		exchangeType,
 		true,
@@ -81,7 +87,7 @@ func (rm RabbitMq) Publish(exchangeName, exchangeType, key, message string) erro
 		final.LogFatal(err, "Failed to declare an exchange.")
 	}
 
-	err = rm.ch.Publish(exchangeName, key, true, false, amqp.Publishing{
+	err = ch.Publish(exchangeName, key, true, false, amqp.Publishing{
 		ContentType: "text/plain",
 		Body:        []byte(message),
 	})
@@ -91,5 +97,9 @@ func (rm RabbitMq) Publish(exchangeName, exchangeType, key, message string) erro
 				message, exchangeName, key))
 	}
 
-	return err
+	return ch, err
+}
+
+func (rm RabbitMq) Close() {
+	rm.conn.Close()
 }

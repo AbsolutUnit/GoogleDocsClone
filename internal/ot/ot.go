@@ -17,7 +17,7 @@ type OTServer struct {
 	config   OTConfig
 	docCache store.Repository[Document, uint32]
 	docDb    store.Repository[Document, uint32]
-	amqp     rbmq.RabbitMq
+	amqp     rbmq.Broker
 }
 
 type Document struct {
@@ -51,44 +51,6 @@ func NewOTServer(config OTConfig) OTServer {
 }
 
 func (ots OTServer) Start() {
-	go func() {
-		final.LogDebug(nil, "listening for newClientOT")
-		connectMsgs := ots.amqp.Consume(ots.config.ExchangeName, "direct", "", "newClientOT")
-		for d := range connectMsgs {
-			msg, err := util.Deserialize[util.SessionOTMessage](d.Body)
-			if err != nil {
-				final.LogFatal(err, "failed to deserialize msg from newClientOT queue")
-			}
-			final.LogDebug(nil, fmt.Sprintf("%s", d.Body))
-			ots.handleConnect(msg)
-		}
-	}()
-
-	go func() {
-		final.LogDebug(nil, "listening for ot1")
-		opMsgs := ots.amqp.Consume(ots.config.ExchangeName, "direct", "", "ot1")
-		for d := range opMsgs {
-			msg, err := util.Deserialize[util.SessionOTMessage](d.Body)
-			if err != nil {
-				final.LogFatal(err, "failed to deserialize msg from ot1 queue")
-			}
-			final.LogDebug(nil, fmt.Sprintf("%s", d.Body))
-			ots.handleOp(msg)
-		}
-	}()
-
-	go func() {
-		fmt.Println("Debug GetDoc Gofunc")
-		getDocMsgs := ots.amqp.Consume(ots.config.ExchangeName, "direct", "", "html")
-		for d := range getDocMsgs {
-			msg, err := util.Deserialize[util.SessionOTMessage](d.Body)
-			if err != nil {
-				final.LogFatal(err, "failed to deserialize msg from html queue")
-			}
-			final.LogDebug(nil, fmt.Sprintf("%s", d.Body))
-			ots.handleGetDoc(msg)
-		}
-	}()
 	forever := make(chan bool)
 	<-forever
 }
@@ -106,11 +68,8 @@ func (ots OTServer) handleConnect(msg util.SessionOTMessage) {
 	if err != nil {
 		final.LogError(err, "Could not deserialize document.")
 	}
-	err = ots.amqp.Publish(ots.config.ExchangeName, "direct", "newClientSession", string(response))
-	if err != nil {
-		final.LogFatal(err, "publish to 'newClient' key failed")
-	}
-	fmt.Println("DEBUG: published to 'newClient' key")
+	ch, err := ots.amqp.Publish(ots.config.ExchangeName, "direct", "newClient", string(response))
+	defer ch.Close()
 }
 
 // yes DocID, yes ClientID, yes Change
@@ -131,22 +90,19 @@ func (ots OTServer) handleOp(msg util.SessionOTMessage) {
 		newChange,
 	}
 	msgBytes, err := util.Serialize(newMsg)
-	err = ots.amqp.Publish(ots.config.ExchangeName, "direct", "session", string(msgBytes))
-	if err != nil {
-		final.LogFatal(err, "failed to publish to 'session' key")
-	}
-	fmt.Println("DEBUG: published to 'session' key")
+	ch, err := ots.amqp.Publish(ots.config.ExchangeName, "direct", "session", string(msgBytes))
+	defer ch.Close()
 }
 
 // yes DocID, no ClientID, no Change
 func (ots OTServer) handleGetDoc(msg util.SessionOTMessage) {
 	fmt.Println("DEBUG: called handleGetDoc")
 	response := ots.DocToHTML(msg.DocumentId)
-	err := ots.amqp.Publish(ots.config.ExchangeName, "direct", "html", response)
+	ch, err := ots.amqp.Publish(ots.config.ExchangeName, "direct", "html", response)
 	if err != nil {
 		final.LogFatal(err, "could not publish html to queue")
 	}
-	fmt.Println("DEBUG: published to 'html' key")
+	defer ch.Close()
 }
 
 func (ots OTServer) DocToHTML(documentID uint32) (html string) {
@@ -176,6 +132,5 @@ func (ots OTServer) DocToHTML(documentID uint32) (html string) {
 		strings.Replace(tag, "\n", "<br/>", -1)
 		html += tag
 	}
-	fmt.Println("DEBUG: converted html: %v", html)
 	return
 }
