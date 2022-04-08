@@ -1,19 +1,42 @@
-var express = require("express")
-var ShareDB = require("sharedb")
-var WebSocket = require("ws")
-var richText = require('rich-text');
 var http = require('http');
+var express = require('express');
+var ShareDB = require('sharedb');
+var richText = require('rich-text');
+var WebSocket = require('ws');
 var WebSocketJSONStream = require('@teamwork/websocket-json-stream');
 
-const app = express()
-const server = http.createServer(app)
-const webSocketServer = new WebSocket.Server({server: server})
+ShareDB.types.register(richText.type);
+var backend = new ShareDB();
+createDoc(startServer);
 
-const backend = new ShareDB()
-ShareDB.types.register(richText.type)
-webSocketServer.on('connection', (webSocket) => {
-  let stream = new WebSocketJSONStream(webSocket)
-  backend.listen(stream)
-})
+// Create initial document then fire callback
+function createDoc(callback) {
+  var connection = backend.connect();
+  var doc = connection.get('docs', '1');
+  doc.fetch(function(err) {
+    if (err) throw err;
+    if (doc.type === null) {
+      doc.create([{insert: '\n'}], 'rich-text', callback);
+      return;
+    }
+    callback();
+  });
+}
 
-server.listen(8081)
+function startServer() {
+  // Create a web server to serve files and listen to WebSocket connections
+  var app = express();
+  app.use(express.static('static'));
+  app.use(express.static('node_modules/quill/dist'));
+  var server = http.createServer(app);
+
+  // Connect any incoming WebSocket connection to ShareDB
+  var wss = new WebSocket.Server({server: server});
+  wss.on('connection', function(ws) {
+    var stream = new WebSocketJSONStream(ws);
+    backend.listen(stream);
+  });
+
+  server.listen(8081);
+  console.log('Listening on http://localhost:8081');
+}
