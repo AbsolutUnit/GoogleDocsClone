@@ -23,6 +23,7 @@ tmp/
 !*.go
 !go.sum
 !go.mod
+!tsconfig.json
 
 !README.md
 !LICENSE
