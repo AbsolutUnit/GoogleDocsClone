@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 
-	"github.com/xxuejie/go-delta-ot/ot"
+	"github.com/fmpwizard/go-quilljs-delta/delta"
 )
 
 // NEXT Milestone ?? if we need other commands that don't fit the admittedly hacky
@@ -18,10 +18,26 @@ import (
 // 	OTCommandGetDocument             = 4
 // )
 
-type SessionOTMessage struct {
-	DocumentId uint32
-	ClientId   string
-	Change     ot.Change
+// type SessionOTMessage struct {
+// 	DocumentId uint32
+// 	ClientId   string
+// 	Change     ot.Change
+// }
+
+type CommandType uint32
+
+const (
+	Respond CommandType = iota // auto assign ints
+	NewDoc
+	NewChange
+	GetDoc
+)
+
+type Message struct {
+	Command    CommandType
+	DocumentID string
+	ClientID   string
+	Delta      delta.Delta // NEXT: no versioning...
 }
 
 func Serialize[Model any](msg Model) ([]byte, error) {

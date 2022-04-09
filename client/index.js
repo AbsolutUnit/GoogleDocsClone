@@ -21,8 +21,7 @@ function update(delta) {
         const opUrl = "http://" + ip + "/op/" + id;
         fetch(opUrl, {
             method: 'POST',
-            body: JSON.stringify(delta.ops) 
-	});
+            body: JSON.stringify(delta.ops) // M1 needed [delta.ops]
     }
 }
 

@@ -4,19 +4,20 @@ type EventData struct {
 	Data any `json:"data"`
 }
 
-type SSEClient struct {
-	id      string // ID of the client, not the account
-	Account *Account
-	Events  chan *EventData
+type Client struct {
+	id string
+	// Account *Account // TODO: double check we do not need Account here
+	Events chan *EventData
 }
 
-func (sc SSEClient) Id() string {
+func (sc Client) Id() string {
 	return sc.id
 }
 
 type SessionDocument struct {
-	id          string
-	Connections map[string]SSEClient // string is a clientId
+	id      string
+	Name    string
+	Clients map[string]Client // string is a clientId
 }
 
 func (sd SessionDocument) Id() string {
