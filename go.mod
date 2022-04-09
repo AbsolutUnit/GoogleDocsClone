@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/bwmarrin/snowflake v0.3.0
+	github.com/dchenk/go-render-quill v0.0.0-20211110010230-f51106477162
 	github.com/fmpwizard/go-quilljs-delta v0.0.6
 	github.com/streadway/amqp v1.0.0
 	github.com/xxuejie/go-delta-ot v0.0.0-20200405082330-c109d451c13f

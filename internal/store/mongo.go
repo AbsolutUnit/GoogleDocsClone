@@ -69,3 +69,8 @@ func (m *MongoDbStore[MODEL, ID]) FindByKey(key string, value any) (result MODEL
 	}
 	return
 }
+
+func (m *MongoDbStore[MODEL, ID]) FindAll() (result []MODEL) {
+	// Make an empty list, not implemented yet.
+	return make([]MODEL, 0)
+}
