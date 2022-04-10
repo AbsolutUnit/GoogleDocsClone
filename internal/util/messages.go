@@ -7,30 +7,15 @@ import (
 	"github.com/fmpwizard/go-quilljs-delta/delta"
 )
 
-// NEXT Milestone ?? if we need other commands that don't fit the admittedly hacky
-// "check if DocumentId and ClientId and Change" exist.
-// type OTCommandId uint32
-
-// const (
-// 	OTCommandNewDocument OTCommandId = 1
-// 	OTCommandNewClient   OTCommandId = 2
-// 	OTCommandChange                  = 3
-// 	OTCommandGetDocument             = 4
-// )
-
-// type SessionOTMessage struct {
-// 	DocumentId uint32
-// 	ClientId   string
-// 	Change     ot.Change
-// }
-
 type CommandType uint32
 
+// TODO: add relevant presence info to different types
+
 const (
-	Respond CommandType = iota // auto assign ints
-	NewDoc
-	NewChange
+	NewDoc CommandType = iota // auto assign ints
+	NewChanges
 	GetDoc
+	GetHTML
 )
 
 type Message struct {
