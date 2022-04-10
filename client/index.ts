@@ -1,4 +1,3 @@
-import 'quill';
 import 'quill-cursors';
 declare var require: any;
 
@@ -17,6 +16,8 @@ const quill = new Quill('#editor', {
 quill.on('text-change', update); // might want editor-change
 quill.on('selection-change', sendPosition);
 
+const cursors = quill.getModule('cursors');
+
 function generateId() {
     return Date.now();
 }
@@ -26,6 +27,7 @@ const ip = "backyardigans.cse356.compas.cs.stonybrook.edu";
 const id = generateId();
 const connUrl = "http://" + ip + "/connect/" + id;
 const eventSource = new EventSource(connUrl);
+
 
 // send new operation to server
 function update(delta: any) {
@@ -58,6 +60,10 @@ function sendPosition(range: any) {
     }
 }
 
+function updateCursors(response: JSON) {
+    
+}
+
 const docbtn = document.getElementById("docbtn")
 const getUrl = "http://" + ip + "/doc/" + id;
 docbtn.onclick = (e) => {
@@ -71,5 +77,10 @@ docbtn.onclick = (e) => {
 
 // receive transforms from server and apply them to editor
 eventSource.onmessage = (e) => {
-    quill.updateContents(JSON.parse(e.data));
+    const resp = JSON.parse(e.data);
+    if () { // check for only ops
+        quill.updateContents(resp);
+    } else {    // check for not ops
+        updateCursors(resp);
+    }
 };
