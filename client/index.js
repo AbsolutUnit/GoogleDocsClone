@@ -1,4 +1,4 @@
-
+Quill.register('modules/cursors', QuillCursors);
 // quill setup
 const quill = new Quill('#editor', {
     theme: 'snow',
