@@ -34,6 +34,19 @@ function update(delta) {
     }
 }
 
+function setCursors (response) {
+    if (response.index) {
+        quill.setSelection(index = parseInt(response.index), length = parseInt(response.length));
+    } else {
+        for (let cursor in response) {
+            var randomColor = Math.floor(Math.random() * 16777215).toString(16);
+            cursors.createCursor(id = cursor, color = randomColor);
+            let movement = {"index": parseInt(cursor.index), "length": parseInt(cursor.length)};
+            cursors.moveCursor(id = cursor, range = movement);
+        }
+    }
+}
+
 function sendPosition(range) {
     const presUrl = "http://" + ip + "/presence/" + id;
     if (range) {
@@ -64,6 +77,20 @@ docbtn.onclick = (e) => {
 
 // receive transforms from server and apply them to editor
 eventSource.onmessage = (e) => {
-    quill.updateContents(JSON.parse(e.data));
-    
+    try {
+        const response = JSON.parse(e.data);
+        if (response.contents) {
+            // for whole doc
+            quill.updateContents(response.contents);
+        } else {
+            // for cursor update
+
+        }
+    } catch {
+        // for op
+        const actions = JSON.parse(e).data;
+        for (let operation of actions) {
+            quill.updateContents(operation);
+        }
+    }
 };
