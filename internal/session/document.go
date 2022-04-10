@@ -4,6 +4,11 @@ type EventData struct {
 	Data any `json:"data"`
 }
 
+type Presence struct {
+	Index  string `json:"index"`
+	Length string `json:"length"`
+}
+
 type Client struct {
 	id string
 	// Account *Account // TODO: double check we do not need Account here
@@ -15,9 +20,10 @@ func (sc Client) Id() string {
 }
 
 type SessionDocument struct {
-	id      string
-	Name    string
-	Clients map[string]Client // string is a clientId
+	id        string
+	Name      string
+	Clients   map[string]Client   // key is a clientId
+	Presences map[string]Presence // key is a clientId
 }
 
 func (sd SessionDocument) Id() string {

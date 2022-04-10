@@ -34,6 +34,8 @@ func NewSessionServer(config SessionConfig) (ss SessionServer) {
 	ss.docs = store.NewInMemoryStore[SessionDocument, string]()
 	ss.accts = store.NewMongoDbStore[Account, string](ss.config.Db.Uri, ss.config.Db.DbName, "accounts", time.Minute)
 	ss.amqp = rbmq.NewRabbitMq(ss.config.AmqpUrl)
+	ss.stoppingChan = make(chan bool)
+	ss.stoppingChan <- false
 	return
 }
 
@@ -56,7 +58,7 @@ func (ss SessionServer) consumeOTResponse(msg amqp.Delivery) {
 }
 
 // Listen for new OT transforms
-func (ss SessionServer) Consume() {
+func (ss SessionServer) Listen() {
 	ch, responses := ss.amqp.Consume(ss.config.ExchangeName, "direct", "session", "session")
 	defer ch.Close()
 
@@ -99,6 +101,8 @@ func (ss SessionServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ss.handleConnect(w, r)
 	case strings.Contains(r.URL.Path, "op/"):
 		ss.handleOp(w, r)
+	case strings.Contains(r.URL.Path, "presence/"):
+		ss.handlePresence(w, r)
 	case strings.Contains(r.URL.Path, "doc/"):
 		ss.handleDoc(w, r)
 	}
@@ -108,6 +112,7 @@ func (ss SessionServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (ss SessionServer) retrieveFullDocument(doc SessionDocument, clientID string) []byte {
 	// First, create the serialized data to send to the OT server.
 	msg, err := util.Serialize(util.Message{
+		Command:    util.GetDoc,
 		DocumentID: doc.Id(), // NEXT Milestone 2
 		ClientID:   clientID,
 	})
@@ -148,59 +153,74 @@ func docIDFromRequest(r *http.Request) string {
 }
 
 func (ss SessionServer) handleConnect(w http.ResponseWriter, r *http.Request) {
+	ss.addCse356Header(w)
+	ss.addSSEHeaders(w)
+
 	clientID := clientIDFromRequest(r)
 	docID := docIDFromRequest(r)
+	doc, exists := ss.docs.FindById(docID)
 
-	// TODO: what is expected behavior when client already connected? (would this ever happen?)
-
-	// NEXT M2: doc with clientID in SSEClient inClients slice
-	// TODO handle exists
-	doc, _ := ss.docs.FindById(docID)
-	if len(doc.Clients) == 0 {
-		fmt.Printf("No clients on document %s. Creating new document with ID %s\n", docID, docID)
+	if !exists {
+		// fmt.Printf("No clients on document %s. Creating new document with ID %s\n", docID, docID)
 		clientMap := make(map[string]Client)
+		presenceMap := make(map[string]Presence)
 		eventsChan := make(chan *EventData)
 		clientMap[clientID] = Client{
 			id:     clientID,
 			Events: eventsChan,
 		}
+		presenceMap[clientID] = Presence{}
 		newDoc := SessionDocument{
-			id:      docID,
-			Name:    "Untitled Document",
-			Clients: clientMap,
+			id:        docID,
+			Name:      "Untitled Document",
+			Clients:   clientMap,
+			Presences: presenceMap,
 		}
 		ss.docs.Store(newDoc)
+		newDocMsg := util.Message{
+			Command:    util.NewDoc,
+			DocumentID: docID,
+			ClientID:   clientID,
+			// Delta is just insert newline char, handled by ot server
+		}
+		newDocMsgBytes, err := util.Serialize(newDocMsg)
+		if err != nil {
+			final.LogFatal(err, "failed to serialize message")
+		}
+		ss.amqp.Publish(ss.config.ExchangeName, "direct", "ot1", string(newDocMsgBytes))
 	}
 
+	// doc does exist, go thru new client flow if we can't find in doc.Clients
 	client, exists := doc.Clients[clientID]
 	// final.LogDebug(nil, fmt.Sprintf("Checked for client in storage. Exists: %t", exists))
-
-	// SSE headers.
-	ss.addSSEHeaders(w)
-
-	// If this client has not connected yet
-	timeout := time.After(3 * time.Second)
+	timeout := time.After(3 * time.Second) // If this client has not connected yet
 	var sseData []byte
 	// Run this in a go func so we can get the existsChan in a channel.
+	// Chris: isn't the reason for go func bc retrieveFullDocument calls Consume and therefore is blocking?
 	existsChan := make(chan []byte)
 	go func() {
 		final.LogDebug(nil, fmt.Sprintf("in go func, exists is %t", exists))
-		if !exists {
+		if !exists { // pass in contents delta, then presence data of ALL existing clients
 			sseData = ss.retrieveFullDocument(doc, clientID)
 			doc.Clients[clientID] = Client{
 				id:     clientID,
 				Events: make(chan *EventData),
 			}
 			existsChan <- sseData
+			presenceBytes, err := util.Serialize(doc.Presences)
+			if err != nil {
+				final.LogFatal(err, "failed to serialize presences")
+			}
+			existsChan <- presenceBytes
 		}
 	}()
 	// select the results.
 	select {
-	case msg := <-client.Events:
+	case msg := <-client.Events: // transformed op from OT, or presence change
 		sseData, _ = util.Serialize(*msg)
 		final.LogDebug(nil, fmt.Sprintf("[%s][out][op] %s %s", r.Method, r.URL.Path, sseData))
 		fmt.Fprintf(w, "%s", sseData)
-	case data := <-existsChan:
+	case data := <-existsChan: //
 		final.LogDebug(nil, fmt.Sprintf("[%s][out][doc] %s %s", r.Method, r.URL.Path, sseData))
 		fmt.Fprintf(w, "%s", data)
 	case <-timeout:
@@ -222,30 +242,49 @@ func logRequest(w http.ResponseWriter, r *http.Request) (io.ReadCloser, error) {
 	return rdr2, bodyErr2
 }
 
+func (ss SessionServer) handlePresence(w http.ResponseWriter, r *http.Request) {
+	clientID := clientIDFromRequest(r)
+	docID := docIDFromRequest(r)
+	doc, exists := ss.docs.FindById(docID)
+	if !exists || len(doc.Clients[clientID].Id()) == 0 { // NOTE: assumes no empty string client IDs
+		ss.handleConnect(w, r)
+		return
+	}
+	body, err := logRequest(w, r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	presence := Presence{}
+	json.NewDecoder(body).Decode(&presence)
+	for _, c := range doc.Clients {
+		if c.Id() != clientID {
+			c.Events <- &EventData{Data: presence}
+		}
+	}
+}
+
 func (ss SessionServer) handleOp(w http.ResponseWriter, r *http.Request) {
 	clientID := clientIDFromRequest(r)
 	docID := docIDFromRequest(r) // TODO: how to find out how to actually get docID
-	var msgs []util.Message
-	// m := util.Message{
-	// 	DocumentID: docID, // NEXT Milestone 1 specific
-	// 	ClientID:   clientID,
-	// }
-
+	doc, exists := ss.docs.FindById(docID)
+	if !exists || len(doc.Clients[clientID].Id()) == 0 { // NOTE: assumes no empty string client IDs
+		ss.handleConnect(w, r)
+		return
+	}
 	body, err := logRequest(w, r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	var msgs []util.Message
 	if r.Method == http.MethodPost {
 		var opsArray []delta.Delta
-		// bodyDelta := delta.Delta{}
-		json.NewDecoder(body).Decode(&opsArray) // TODO: need to double check this works (decode into uninitialized array)
-		// json.NewDecoder(r.Body).Decode(&bodyDelta.Ops)
-		// msg.Change.Delta = &bodyDelta
+		json.NewDecoder(body).Decode(&opsArray) // TODO: need to double check this works (decoding into uninitialized slice)
 		for i, op := range opsArray {
 			msgs[i] = util.Message{
-				Command:    util.NewChange,
+				Command:    util.NewChanges,
 				DocumentID: docID,
 				ClientID:   clientID,
 				Delta:      op,
@@ -268,6 +307,7 @@ func (ss SessionServer) handleDoc(w http.ResponseWriter, r *http.Request) {
 	clientID := clientIDFromRequest(r)
 	docID := docIDFromRequest(r) // TODO: again, this is dummy function
 	msg := util.Message{
+		Command:    util.GetHTML,
 		DocumentID: docID,
 		ClientID:   clientID,
 	}
