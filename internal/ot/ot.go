@@ -66,7 +66,7 @@ func (ots OTServer) Start() {
 
 // create new document and store it in ots
 func (ots OTServer) CreateAndStoreDoc(documentID string, clientID string) Document {
-	fmt.Println("DEBUG: called NewDocument")
+	final.LogDebug(nil, "CreatAndStoreDoc")
 	document := Document{}
 	//new document is just "\n"
 	document.file = ot.NewFile(delta.Delta{[]delta.Op{delta.Op{Insert: []rune("\n")}}})
@@ -119,7 +119,10 @@ func (ots OTServer) handleNewChange(msg util.Message) {
 
 // publishes contents delta to amqp 'newClient' key
 func (ots OTServer) handleGetDoc(msg util.Message) {
-	doc, _ := ots.docCache.FindById(msg.DocumentID)
+	doc, exists := ots.docCache.FindById(msg.DocumentID)
+	if !exists {
+		final.LogFatal(nil, "getting doc that does not exist")
+	}
 	msgBytes, err := util.Serialize(util.Message{
 		DocumentID: msg.DocumentID,
 		ClientID:   msg.ClientID,

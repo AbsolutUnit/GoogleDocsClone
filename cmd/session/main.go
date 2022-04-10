@@ -15,12 +15,12 @@ func main() {
 		final.LogFatal(err, "could not load configuration from "+cfgFileName)
 	}
 	config := session.NewSessionConfig(file)
-
 	server := session.NewSessionServer(config)
 	// Consume messages from the OT server
 	go server.Listen()
 	// Start the http server part
 	err = http.ListenAndServe(":8080", server)
+	final.LogDebug(nil, "server listening on port 8080")
 	if err != nil {
 		final.LogFatal(err, "Failed to start session server.")
 	}

@@ -35,7 +35,6 @@ func NewSessionServer(config SessionConfig) (ss SessionServer) {
 	ss.accts = store.NewMongoDbStore[Account, string](ss.config.Db.Uri, ss.config.Db.DbName, "accounts", time.Minute)
 	ss.amqp = rbmq.NewRabbitMq(ss.config.AmqpUrl)
 	ss.stoppingChan = make(chan bool)
-	ss.stoppingChan <- false
 	return
 }
 
@@ -177,6 +176,7 @@ func (ss SessionServer) handleConnect(w http.ResponseWriter, r *http.Request) {
 			Presences: presenceMap,
 		}
 		ss.docs.Store(newDoc)
+		doc = newDoc
 		newDocMsg := util.Message{
 			Command:    util.NewDoc,
 			DocumentID: docID,
@@ -251,6 +251,7 @@ func (ss SessionServer) handlePresence(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	body, err := logRequest(w, r)
+	r.Body = body
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
