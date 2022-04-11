@@ -58,6 +58,19 @@ func (m *MongoDbStore[MODEL, ID]) FindById(id ID) (result MODEL, exists bool) {
 	return result, (err != mongo.ErrNoDocuments && err != nil)
 }
 
+func (m *MongoDbStore[MODEL, ID]) DeleteById(id ID) (count int, err error) {
+	col := m.cli.Database(m.dbName).Collection(m.collection)
+	ctx, cancel := context.WithTimeout(context.Background(), m.timeOutSeconds)
+	defer cancel()
+	// TODO: is this a bug because id isn't capitalized?
+	filter := bson.D{primitive.E{Key: "Id", Value: id}}
+	res, err := col.DeleteOne(ctx, filter)
+	if err != nil && err != mongo.ErrNoDocuments {
+		final.LogError(err, "could not look for database object")
+	}
+	return int(res.DeletedCount), err
+}
+
 func (m *MongoDbStore[MODEL, ID]) FindByKey(key string, value any) (result MODEL) {
 	col := m.cli.Database(m.dbName).Collection(m.collection)
 	ctx, cancel := context.WithTimeout(context.Background(), m.timeOutSeconds)

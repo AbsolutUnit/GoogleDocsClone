@@ -27,6 +27,12 @@ func (ims *InMemoryStore[MODEL, ID]) FindById(id ID) (result MODEL, exists bool)
 	}
 }
 
+func (ims *InMemoryStore[MODEL, ID]) DeleteById(id ID) (count int, err error) {
+	// Delete always deletes even if theres nothing there.
+	delete(ims.store, id)
+	return 1, nil
+}
+
 func (ims *InMemoryStore[MODEL, ID]) FindByKey(key string, value any) (result MODEL) {
 	final.LogFatal(nil, "Cannot use FindByKey for inmemory database we should fix this.")
 	return
