@@ -24,7 +24,7 @@ type AccountClaims struct {
 
 // Retrieves an account ID from a cookie.
 func IdFrom(tokenString string, key string) (Account, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &AccountClaims{}, func(token *jwt.Token) (any, error ) {
+	token, err := jwt.ParseWithClaims(tokenString, &AccountClaims{}, func(token *jwt.Token) (any, error) {
 		return []byte(key), nil
 	})
 	if claims, ok := token.Claims.(*AccountClaims); ok && token.Valid {
@@ -48,7 +48,7 @@ func (a Account) TestPassword(account Account) (valid bool) {
 func (a Account) CreateJwt(key string) (tokenString string, err error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, AccountClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer: "Backyardigans",
+			Issuer:    "Backyardigans",
 			NotBefore: jwt.NewNumericDate(time.Now().Add(-time.Minute * 10)),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 30)),
 		},

@@ -29,12 +29,12 @@ func (ac AccountClient) Id() string {
 }
 
 type SessionServer struct {
-	config         SessionConfig
-	docs           store.Repository[SessionDocument, string]
-	accts          store.Repository[Account, string]
-	accCache       store.Repository[AccountClient, string]
-	amqp           rbmq.Broker
-	stoppingChan   chan bool
+	config       SessionConfig
+	docs         store.Repository[SessionDocument, string]
+	accts        store.Repository[Account, string]
+	accCache     store.Repository[AccountClient, string]
+	amqp         rbmq.Broker
+	stoppingChan chan bool
 }
 
 func NewSessionServer(config SessionConfig) (ss SessionServer) {
