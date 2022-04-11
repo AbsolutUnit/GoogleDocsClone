@@ -13,6 +13,7 @@ type Client struct {
 	id string
 	Account *Account
 	Events chan *EventData
+	LoggedOut chan bool
 }
 
 func (sc Client) Id() string {

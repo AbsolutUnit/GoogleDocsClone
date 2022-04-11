@@ -34,7 +34,6 @@ type SessionServer struct {
 	accts          store.Repository[Account, string]
 	accCache       store.Repository[AccountClient, string]
 	amqp           rbmq.Broker
-	closingClients chan *Client
 	stoppingChan   chan bool
 }
 
@@ -196,7 +195,7 @@ func (ss SessionServer) handleUsersLogout(w http.ResponseWriter, r *http.Request
 	acct, ok := ss.accCache.FindById(account.Email)
 	if ok {
 		for _, client := range acct.Clients {
-			ss.closingClients <- client
+			client.LoggedOut <- true
 		}
 	}
 	ss.accCache.DeleteById(account.Id())
