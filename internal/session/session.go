@@ -19,12 +19,23 @@ import (
 	"github.com/streadway/amqp"
 )
 
+type AccountClient struct {
+	AccountId string
+	Clients   []*Client
+}
+
+func (ac AccountClient) Id() string {
+	return ac.AccountId
+}
+
 type SessionServer struct {
-	config       SessionConfig
-	docs         store.Repository[SessionDocument, string]
-	accts        store.Repository[Account, string]
-	amqp         rbmq.Broker
-	stoppingChan chan bool
+	config         SessionConfig
+	docs           store.Repository[SessionDocument, string]
+	accts          store.Repository[Account, string]
+	accCache       store.Repository[AccountClient, string]
+	amqp           rbmq.Broker
+	closingClients chan *Client
+	stoppingChan   chan bool
 }
 
 func NewSessionServer(config SessionConfig) (ss SessionServer) {
@@ -33,6 +44,7 @@ func NewSessionServer(config SessionConfig) (ss SessionServer) {
 	// TODO: discuss memory store vs mongodb. Why not do it all in memory?
 	ss.docs = store.NewInMemoryStore[SessionDocument, string]()
 	ss.accts = store.NewMongoDbStore[Account, string](ss.config.Db.Uri, ss.config.Db.DbName, "accounts", time.Minute)
+	ss.accCache = store.NewInMemoryStore[AccountClient, string]()
 	ss.amqp = rbmq.NewRabbitMq(ss.config.AmqpUrl)
 	ss.stoppingChan = make(chan bool)
 	return
@@ -88,14 +100,40 @@ func (ss SessionServer) addSSEHeaders(w http.ResponseWriter) {
 	w.Header().Set("Connection", "keep-alive")
 }
 
+func (ss SessionServer) writeError(w http.ResponseWriter, error string) {
+	type respError struct {
+		Error string `json:"error"`
+	}
+	// TODO maybe add logging?
+	json.NewEncoder(w).Encode(respError{Error: error})
+}
+
+func (ss SessionServer) LogRequestIn(w http.ResponseWriter, r *http.Request) {
+	str := fmt.Sprintf("[%s][in] %s\n", r.Method, r.URL.Path)
+
+	buf, bodyErr := ioutil.ReadAll(r.Body)
+	if bodyErr != nil {
+		final.LogError("Could not deserialize body.")
+		return
+	}
+	rdr1 := ioutil.NopCloser(bytes.NewBuffer(buf))
+	rdr2 := ioutil.NopCloser(bytes.NewBuffer(buf))
+
+	str += fmt.Sprintf("[body] %q", rdr1)
+	r.Body = rdr2
+	final.LogDebug(nil, str)
+}
+
 func (ss SessionServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ss.addCse356Header(w)
-	final.LogDebug(nil, fmt.Sprintf("[%s][in] %s", r.Method, r.URL.Path))
+	ss.LogRequestIn(w, r)
 
 	defer r.Body.Close()
 	// switch on the endpoints
 	// ASSUMPTION: "connect", "op", "doc" not part of session id
 	switch {
+	case strings.Contains(r.URL.Path, "users/"):
+		ss.handleUsers(w, r)
 	case strings.Contains(r.URL.Path, "connect/"):
 		ss.handleConnect(w, r)
 	case strings.Contains(r.URL.Path, "op/"):
@@ -104,6 +142,110 @@ func (ss SessionServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ss.handlePresence(w, r)
 	case strings.Contains(r.URL.Path, "doc/"):
 		ss.handleDoc(w, r)
+	}
+}
+
+// Handle anything under /users
+func (ss SessionServer) handleUsers(w http.ResponseWriter, r *http.Request) {
+	switch {
+	case strings.Contains(r.URL.Path, "login/"):
+		ss.handleUsersLogin(w, r)
+	case strings.Contains(r.URL.Path, "logout/"):
+		ss.handleUsersLogout(w, r)
+	case strings.Contains(r.URL.Path, "signup/"):
+		ss.handleUsersSignup(w, r)
+	case strings.Contains(r.URL.Path, "verify/"):
+		ss.handleUsersVerify(w, r)
+	}
+}
+
+func (ss SessionServer) handleUsersLogin(w http.ResponseWriter, r *http.Request) {
+	account := Account{}
+	json.NewDecoder(r.Body).Decode(&account)
+
+	stored := ss.accts.FindByKey("email", account.Email)
+	if !stored.Verified {
+		ss.writeError(w, "User is not verified.")
+	}
+	if !account.TestPassword(stored) {
+		ss.writeError(w, "Wrong password.")
+	}
+	tokenString := account.CreateJwt(ss.config.ClaimKey)
+	http.SetCookie(w, &http.Cookie{
+		Name:    "token",
+		Value:   tokenString,
+		Expires: time.Now().Add(10 * time.Minute),
+	})
+	// Write the account name in response.
+	json.NewEncoder(w).Encode(struct {
+		Name string `json:"name"`
+	}{Name: account.Username})
+}
+
+func (ss SessionServer) handleUsersLogout(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("token")
+	if err != nil {
+		ss.writeError(w, "Not logged in.")
+	}
+	account, err := IdFrom(cookie.Value, ss.config.ClaimKey)
+	if err != nil {
+		ss.writeError(w, "Could not logout. Account not found.")
+	}
+	// TODO
+	// // Close the clients, by looping through the map of account -> client.
+	acct, ok := ss.accCache.FindById(account.Email)
+	if ok {
+		for _, client := range acct.Clients {
+			ss.closingClients <- client
+		}
+	}
+	ss.accCache.DeleteById(account.Id())
+	http.SetCookie(w, &http.Cookie{
+		Name:    "token",
+		Value:   "",
+		Expires: time.Now().Add(10 * time.Minute),
+	})
+}
+
+func (ss SessionServer) handleUsersSignup(w http.ResponseWriter, r *http.Request) {
+	account := Account{}
+	json.NewDecoder(r.Body).Decode(&account)
+	account.Verified = false
+	stored := ss.accts.FindByKey("email", account.Email)
+	if stored.Email == account.Email { // maybe I only have to check if its not empty?
+		ss.writeError(w, "Account already exists with that email.")
+		return
+	}
+	if err := ss.accts.Store(account); err != nil {
+		ss.writeError(w, "Internal error: could not store new account.")
+	}
+	verifyString, err := account.CreateJwt(ss.config.VerifyKey)
+	if err != nil {
+		ss.writeError(w, "Internal error: could not generate session token.")
+	}
+	// emailContent := fmt.Sprintf("https://%s/users/verify?key=%s", ss.config.HostName, verifyString)
+	fmt.Sprintf("https://%s/users/verify?key=%s", ss.config.HostName, verifyString)
+	// TODO write the email with SMTP to postfix: https://gist.github.com/jniltinho/d90034994f29d7d25e59c9e0fe5548d2
+}
+
+func (ss SessionServer) handleUsersVerify(w http.ResponseWriter, r *http.Request) {
+	verifyKey := r.URL.Query()["key"]
+	if len(verifyKey) == 1 {
+		account, err := IdFrom(verifyKey[0], ss.config.VerifyKey)
+		if err != nil {
+			ss.writeError(w, "Invalid verification key.")
+		}
+		stored, exists := ss.accts.FindById(account.Id())
+		if !exists {
+			ss.writeError(w, "Database error. I hope you aren't hacking us.")
+		}
+		stored.Verified = true
+		err = ss.accts.Store(stored)
+		if err != nil {
+			ss.writeError(w, "Could not update verification status.")
+		}
+	} else {
+		ss.writeError(w, "Malformed input.")
 	}
 }
 
@@ -160,7 +302,6 @@ func (ss SessionServer) handleConnect(w http.ResponseWriter, r *http.Request) {
 	doc, exists := ss.docs.FindById(docID)
 
 	if !exists {
-		// fmt.Printf("No clients on document %s. Creating new document with ID %s\n", docID, docID)
 		clientMap := make(map[string]Client)
 		presenceMap := make(map[string]Presence)
 		eventsChan := make(chan *EventData)

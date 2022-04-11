@@ -23,6 +23,8 @@ type SessionConfig struct {
 		Password string              `json:"password"`
 	} `json:"db"`
 	ExchangeName string `json:"exchangeName"`
+	HostName string `json:"hostname"`
+	VerifyKey string `json:"verifyKey"`
 }
 
 func NewSessionConfig(r io.Reader) (cfg SessionConfig) {

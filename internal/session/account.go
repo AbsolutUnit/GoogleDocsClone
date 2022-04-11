@@ -1,28 +1,39 @@
 package session
 
 import (
-	"github.com/bwmarrin/snowflake"
+	"net/http"
+	"strings"
+	"time"
+
+	jwt "github.com/golang-jwt/jwt/v4"
 )
 
-type Token struct {
-	id    snowflake.ID
-	token string
-}
-
-func (t Token) Id() string {
-	return t.id.String()
-}
-
 type Account struct {
-	id       snowflake.ID
+	Email    string
 	Username string
 	Password string
-	Email    string
 	Verified bool
 }
 
+type AccountClaims struct {
+	Email string `json:"email"`
+	jwt.RegisteredClaims
+}
+
+// Retrieves an account ID from a cookie.
+func IdFrom(tokenString string, key string) (Account, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &AccountClaims{}, func(token *jwt.Token) (any, error ) {
+		return []byte(key), nil
+	})
+	if claims, ok := token.Claims.(*AccountClaims); ok && token.Valid {
+		return Account{Email: claims.Email}, nil
+	}
+	return Account{}, err
+}
+
 func (a Account) Id() string {
-	return a.id.String()
+	// Email as Id for now.
+	return a.Email
 }
 
 // Given an account with a hashed password, hash this account's password and compare the two.
@@ -31,7 +42,20 @@ func (a Account) TestPassword(account Account) (valid bool) {
 	return false
 }
 
-// Creates a JWT storing this accounts username given a key to sign it with
-func (a Account) CreateJwt(key string) (token Token) {
-	return Token{}
+// Creates a JWT storing this accounts username given a key to sign it with.
+func (a Account) CreateJwt(key string) (tokenString string, err error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, AccountClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer: "Backyardigans",
+			NotBefore: jwt.NewNumericDate(time.Now().Add(-time.Minute * 10)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 30)),
+		},
+		Email: a.Email,
+	})
+	tokenString, err = token.SignedString(key)
+	// Remove header
+	// if err != nil {
+	// 	tokenString = tokenString[strings.Index(tokenString, ".")+1:]
+	// }
+	return
 }

@@ -11,7 +11,7 @@ type Presence struct {
 
 type Client struct {
 	id string
-	// Account *Account // TODO: double check we do not need Account here
+	Account *Account
 	Events chan *EventData
 }
 
