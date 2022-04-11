@@ -165,13 +165,16 @@ func (ss SessionServer) handleUsersLogin(w http.ResponseWriter, r *http.Request)
 	stored := ss.accts.FindByKey("email", account.Email)
 	if !stored.Verified {
 		ss.writeError(w, "User is not verified.")
+		return
 	}
 	if !account.TestPassword(stored) {
 		ss.writeError(w, "Wrong password.")
+		return
 	}
 	tokenString, err := account.CreateJwt(ss.config.ClaimKey)
 	if err != nil {
 		ss.writeError(w, "Internal error: could not generate session token.")
+		return
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name:    "token",
@@ -188,10 +191,12 @@ func (ss SessionServer) handleUsersLogout(w http.ResponseWriter, r *http.Request
 	cookie, err := r.Cookie("token")
 	if err != nil {
 		ss.writeError(w, "Not logged in.")
+		return
 	}
 	account, err := IdFrom(cookie.Value, ss.config.ClaimKey)
 	if err != nil {
 		ss.writeError(w, "Could not logout. Account not found.")
+		return
 	}
 	// TODO
 	// // Close the clients, by looping through the map of account -> client.
@@ -220,10 +225,12 @@ func (ss SessionServer) handleUsersSignup(w http.ResponseWriter, r *http.Request
 	}
 	if err := ss.accts.Store(account); err != nil {
 		ss.writeError(w, "Internal error: could not store new account.")
+		return
 	}
 	verifyString, err := account.CreateJwt(ss.config.VerifyKey)
 	if err != nil {
 		ss.writeError(w, "Internal error: could not generate session token.")
+		return
 	}
 	// emailContent := fmt.Sprintf("https://%s/users/verify?key=%s", ss.config.HostName, verifyString)
 	fmt.Sprintf("https://%s/users/verify?key=%s", ss.config.HostName, verifyString)
@@ -236,18 +243,22 @@ func (ss SessionServer) handleUsersVerify(w http.ResponseWriter, r *http.Request
 		account, err := IdFrom(verifyKey[0], ss.config.VerifyKey)
 		if err != nil {
 			ss.writeError(w, "Invalid verification key.")
+			return
 		}
 		stored, exists := ss.accts.FindById(account.Id())
 		if !exists {
 			ss.writeError(w, "Database error. I hope you aren't hacking us.")
+			return
 		}
 		stored.Verified = true
 		err = ss.accts.Store(stored)
 		if err != nil {
 			ss.writeError(w, "Could not update verification status.")
+			return
 		}
 	} else {
 		ss.writeError(w, "Malformed input.")
+		return
 	}
 }
 
