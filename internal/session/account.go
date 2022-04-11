@@ -1,8 +1,10 @@
 package session
 
 import (
-	"net/http"
-	"strings"
+	"errors"
+	"fmt"
+	"net/mail"
+	"net/smtp"
 	"time"
 
 	jwt "github.com/golang-jwt/jwt/v4"
@@ -58,4 +60,16 @@ func (a Account) CreateJwt(key string) (tokenString string, err error) {
 	// 	tokenString = tokenString[strings.Index(tokenString, ".")+1:]
 	// }
 	return
+}
+
+func (a Account) SendVerificationEmail(key string, host string) error {
+	verifyString, err := a.CreateJwt(key)
+	if err != nil {
+		return errors.New("Internal error: could not generate session token: " + err.Error())
+	}
+	// TODO for milestone 4, refactor this out possibly.
+	auth := smtp.PlainAuth("", "", "", host)
+	from := mail.Address{Name: "Backyardigans", Address: "backyardigans" + host}
+	msg := fmt.Sprintf("https://%s/users/verify?key=%s\r\n", host, verifyString)
+	return smtp.SendMail(host+":25", auth, from.String(), []string{a.Email}, []byte(msg))
 }

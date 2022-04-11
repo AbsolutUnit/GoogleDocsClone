@@ -227,14 +227,10 @@ func (ss SessionServer) handleUsersSignup(w http.ResponseWriter, r *http.Request
 		ss.writeError(w, "Internal error: could not store new account.")
 		return
 	}
-	verifyString, err := account.CreateJwt(ss.config.VerifyKey)
-	if err != nil {
-		ss.writeError(w, "Internal error: could not generate session token.")
+	if err := account.SendVerificationEmail(ss.config.VerifyKey, ss.config.HostName); err != nil {
+		ss.writeError(w, err.Error())
 		return
 	}
-	// emailContent := fmt.Sprintf("https://%s/users/verify?key=%s", ss.config.HostName, verifyString)
-	fmt.Sprintf("https://%s/users/verify?key=%s", ss.config.HostName, verifyString)
-	// TODO write the email with SMTP to postfix: https://gist.github.com/jniltinho/d90034994f29d7d25e59c9e0fe5548d2
 }
 
 func (ss SessionServer) handleUsersVerify(w http.ResponseWriter, r *http.Request) {
