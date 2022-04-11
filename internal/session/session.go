@@ -169,7 +169,10 @@ func (ss SessionServer) handleUsersLogin(w http.ResponseWriter, r *http.Request)
 	if !account.TestPassword(stored) {
 		ss.writeError(w, "Wrong password.")
 	}
-	tokenString := account.CreateJwt(ss.config.ClaimKey)
+	tokenString, err := account.CreateJwt(ss.config.ClaimKey)
+	if err != nil {
+		ss.writeError(w, "Internal error: could not generate session token.")
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:    "token",
 		Value:   tokenString,
