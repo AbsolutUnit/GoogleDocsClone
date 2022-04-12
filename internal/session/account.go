@@ -8,6 +8,7 @@ import (
 	"time"
 
 	jwt "github.com/golang-jwt/jwt/v4"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Account struct {
@@ -38,10 +39,18 @@ func (a Account) Id() string {
 	return a.Email
 }
 
+func (a Account) HashPassword() error {
+	hashed, err := bcrypt.GenerateFromPassword([]byte(a.Password), 10)
+	if err != nil {
+		a.Password = string(hashed)
+	}
+	return err
+}
+
 // Given an account with a hashed password, hash this account's password and compare the two.
 func (a Account) TestPassword(account Account) (valid bool) {
-	// bcrypt with cost factor 10
-	return false
+	// bcrypt with cost factor 10 (default)
+	return bcrypt.CompareHashAndPassword([]byte(account.Password), []byte(a.Password)) == nil
 }
 
 // Creates a JWT storing this accounts username given a key to sign it with.

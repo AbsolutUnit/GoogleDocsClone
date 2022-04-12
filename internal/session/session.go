@@ -223,6 +223,10 @@ func (ss SessionServer) handleUsersSignup(w http.ResponseWriter, r *http.Request
 		ss.writeError(w, "Account already exists with that email.")
 		return
 	}
+	if err := account.HashPassword(); err != nil {
+		ss.writeError(w, "Internal error: failed to hash password.")
+		return
+	}
 	if err := ss.accts.Store(account); err != nil {
 		ss.writeError(w, "Internal error: could not store new account.")
 		return
