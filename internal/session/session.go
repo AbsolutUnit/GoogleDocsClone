@@ -9,7 +9,6 @@ import (
 	"final/internal/store"
 	"final/internal/util"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -114,6 +113,25 @@ func (ss SessionServer) writeError(w http.ResponseWriter, err string) {
 	json.NewEncoder(w).Encode(respError{Error: err})
 }
 
+func parseRequestIDs(r *http.Request) (docID string, clientID string, mediaID string, err error) {
+	split := strings.Split(r.URL.Path, "/")
+	if strings.HasPrefix(r.URL.Path, "/media/access/") {
+		mediaID = split[len(split)-1]
+		return
+	}
+	if strings.HasPrefix(r.URL.Path, "/doc/edit/") {
+		docID = split[len(split)-1]
+		return
+	}
+	if strings.HasPrefix(r.URL.Path, "/doc/") {
+		docID = split[len(split)-2]
+		clientID = split[len(split)-1]
+		return
+	}
+	err = errors.New("the request URL does not contain IDs to be parsed")
+	return
+}
+
 func (ss SessionServer) LogRequestIn(w http.ResponseWriter, r *http.Request) {
 	str := fmt.Sprintf("[%s][in] %s\n", r.Method, r.URL.Path)
 
@@ -134,33 +152,32 @@ func (ss SessionServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ss.addCse356Header(w)
 	ss.LogRequestIn(w, r)
 
-	defer r.Body.Close() // TODO: is this necessary?
+	defer r.Body.Close() // TODO: is this necessary (docs are confusing)?
 	// switch on the endpoints
-	// ASSUMPTION: "connect", "op", "doc" not part of session id
 	switch {
-	case strings.Contains(r.URL.Path, "users/"):
+	case strings.HasPrefix(r.URL.Path, "/users/"):
 		ss.handleUsers(w, r)
-	case strings.Contains(r.URL.Path, "connect/"):
-		ss.handleConnect(w, r)
-	case strings.Contains(r.URL.Path, "op/"):
-		ss.handleOp(w, r)
-	case strings.Contains(r.URL.Path, "presence/"):
-		ss.handlePresence(w, r)
-	case strings.Contains(r.URL.Path, "doc/"):
+	case strings.HasPrefix(r.URL.Path, "/collection/"):
+		ss.handleCollection(w, r)
+	case strings.HasPrefix(r.URL.Path, "/media"):
+		ss.handleMedia(w, r)
+	case strings.HasPrefix(r.URL.Path, "/doc/"):
 		ss.handleDoc(w, r)
+	case strings.HasPrefix(r.URL.Path, "/home"):
+		ss.handleHome(w, r)
 	}
 }
 
 // Handle anything under /users
 func (ss SessionServer) handleUsers(w http.ResponseWriter, r *http.Request) {
 	switch {
-	case strings.Contains(r.URL.Path, "login/"):
+	case strings.HasPrefix(r.URL.Path, "/users/login"):
 		ss.handleUsersLogin(w, r)
-	case strings.Contains(r.URL.Path, "logout/"):
+	case strings.HasPrefix(r.URL.Path, "/users/logout"):
 		ss.handleUsersLogout(w, r)
-	case strings.Contains(r.URL.Path, "signup/"):
+	case strings.HasPrefix(r.URL.Path, "/users/signup"):
 		ss.handleUsersSignup(w, r)
-	case strings.Contains(r.URL.Path, "verify/"):
+	case strings.HasPrefix(r.URL.Path, "/users/verify"):
 		ss.handleUsersVerify(w, r)
 	}
 }
@@ -269,52 +286,58 @@ func (ss SessionServer) handleUsersVerify(w http.ResponseWriter, r *http.Request
 	}
 }
 
-// Get the entire document as a []byte to send back to the client over SSE.
-func (ss SessionServer) retrieveFullDocument(doc SessionDocument, clientID string) []byte {
-	// First, create the serialized data to send to the OT server.
-	msg, err := util.Serialize(util.Message{
-		Command:    util.GetDoc,
-		DocumentID: doc.Id(), // NEXT Milestone 2
-		ClientID:   clientID,
-	})
-	if err != nil {
-		final.LogError(err, "Could not serialize message to OT server.")
+// Handle anything under /collection
+func (ss SessionServer) handleCollection(w http.ResponseWriter, r *http.Request) {
+	switch {
+	case strings.HasPrefix(r.URL.Path, "/collection/create"):
+		ss.handleCollectionCreate(w, r)
+	case strings.HasPrefix(r.URL.Path, "/collection/delete"):
+		ss.handleCollectionDelete(w, r)
+	case strings.HasPrefix(r.URL.Path, "/collection/list"):
+		ss.handleCollectionList(w, r)
 	}
-	// Send the message to the OT server.
-	ch, err := ss.amqp.Publish(ss.config.ExchangeName, "direct", "ot1", string(msg))
-	if err != nil {
-		final.LogError(err, "Could not publish message to AMQP.")
-	}
-	defer ch.Close()
-
-	ch, responses := ss.amqp.Consume(ss.config.ExchangeName, "direct", "", "newClient")
-	defer ch.Close()
-	if err != nil {
-		final.LogError(err, "Could not consume message from OT server.")
-	}
-	sseMsg, err := util.Deserialize[util.Message]((<-responses).Body)
-	if err != nil {
-		final.LogError(err, "Could not deserialize message from OT server.")
-	}
-	sseData, _ := util.Serialize(EventData{
-		Content: *sseMsg.Change.Delta,
-		Version: sseMsg.Change.Version,
-	})
-	return sseData
 }
 
-// TODO: fix
-func clientIDFromRequest(r *http.Request) string {
-	lastSlash := strings.LastIndex(r.URL.Path, "/")
-	return r.URL.Path[lastSlash+1:]
+func (ss SessionServer) handleCollectionCreate(w http.ResponseWriter, r *http.Request) {
+	// don't need to check existence. We do docID creation
+	// check auth and that's it?
 }
 
-// TODO: fix
-func docIDFromRequest(r *http.Request) string {
-	return "1"
+func (ss SessionServer) handleCollectionDelete(w http.ResponseWriter, r *http.Request) {
+
 }
 
-func (ss SessionServer) handleConnect(w http.ResponseWriter, r *http.Request) {
+func (ss SessionServer) handleCollectionList(w http.ResponseWriter, r *http.Request) {
+
+}
+
+// Handle anything under /media
+func (ss SessionServer) handleMedia(w http.ResponseWriter, r *http.Request) {
+	switch {
+	case strings.HasPrefix(r.URL.Path, "/media/upload"):
+		// TODO
+	case strings.HasPrefix(r.URL.Path, "/media/access"):
+		// TODO
+	}
+}
+
+// Handle anything under /doc
+func (ss SessionServer) handleDoc(w http.ResponseWriter, r *http.Request) {
+	switch {
+	case strings.HasPrefix(r.URL.Path, "/doc/edit"):
+		ss.handleDocEdit(w, r)
+	case strings.HasPrefix(r.URL.Path, "/doc/connect"):
+		ss.handleDocConnect(w, r)
+	case strings.HasPrefix(r.URL.Path, "/doc/op"):
+		ss.handleDocOp(w, r)
+	case strings.HasPrefix(r.URL.Path, "/doc/presence"):
+		ss.handleDocPresence(w, r)
+	case strings.HasPrefix(r.URL.Path, "/doc/get"):
+		ss.handleDocGet(w, r)
+	}
+}
+
+func (ss SessionServer) handleDocConnect(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("token")
 	if err != nil {
 		ss.writeError(w, "Not logged in.")
@@ -323,11 +346,13 @@ func (ss SessionServer) handleConnect(w http.ResponseWriter, r *http.Request) {
 	ss.addCse356Header(w)
 	ss.addSSEHeaders(w)
 
-	clientID := clientIDFromRequest(r)
-	docID := docIDFromRequest(r)
+	docID, clientID, _, err := parseRequestIDs(r)
+	if err != nil {
+		final.LogFatal(err, "parseRequestIDs failed")
+	}
 	doc, exists := ss.docs.FindById(docID)
 	if !exists {
-		ss.writeError(w, fmt.Sprint("Document with ID %s does not exist", docID))
+		ss.writeError(w, fmt.Sprintf("Document with ID %s does not exist", docID))
 		return
 	}
 
@@ -377,12 +402,12 @@ func (ss SessionServer) handleConnect(w http.ResponseWriter, r *http.Request) {
 				Events: make(chan *EventData),
 			}
 			doc.Clients[clientID] = newClient
-			acctID, err := IdFrom(cookie.Value, ss.config.ClaimKey)
+			acct, err := IdFrom(cookie.Value, ss.config.ClaimKey)
 			if err != nil {
 				ss.writeError(w, "Account somehow doesn't exist")
 				return
 			}
-			acctClients := ss.accCache.FindByKey("AccountId", acctID)
+			acctClients := ss.accCache.FindByKey("AccountId", acct.Id())
 			acctClients.Clients = append(acctClients.Clients, &newClient)
 			ss.accCache.Store(acctClients)
 			sseData = ss.retrieveFullDocument(doc, clientID)
@@ -413,61 +438,71 @@ func (ss SessionServer) handleConnect(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func logRequest(w http.ResponseWriter, r *http.Request) (io.ReadCloser, error) {
-	buf2, bodyErr2 := ioutil.ReadAll(r.Body)
-	if bodyErr2 != nil {
-		return nil, errors.New("failed to read request body")
+// Get the entire document as a []byte to send back to the client over SSE.
+func (ss SessionServer) retrieveFullDocument(doc SessionDocument, clientID string) []byte {
+	// First, create the serialized data to send to the OT server.
+	msg, err := util.Serialize(util.Message{
+		Command:    util.GetDoc,
+		DocumentID: doc.Id(), // NEXT Milestone 2
+		ClientID:   clientID,
+	})
+	if err != nil {
+		final.LogError(err, "Could not serialize message to OT server.")
 	}
-	rdr1 := ioutil.NopCloser(bytes.NewBuffer(buf2))
-	rdr2 := ioutil.NopCloser(bytes.NewBuffer(buf2))
-	final.LogDebug(nil, fmt.Sprintf("[in][%s] %s Body: %s", r.Method, r.URL.Path, rdr1))
-	return rdr2, bodyErr2
+	// Send the message to the OT server.
+	ch, err := ss.amqp.Publish(ss.config.ExchangeName, "direct", "ot1", string(msg))
+	if err != nil {
+		final.LogError(err, "Could not publish message to AMQP.")
+	}
+	defer ch.Close()
+
+	ch, responses := ss.amqp.Consume(ss.config.ExchangeName, "direct", "", "newClient")
+	defer ch.Close()
+	if err != nil {
+		final.LogError(err, "Could not consume message from OT server.")
+	}
+	sseMsg, err := util.Deserialize[util.Message]((<-responses).Body)
+	if err != nil {
+		final.LogError(err, "Could not deserialize message from OT server.")
+	}
+	sseData, _ := util.Serialize(EventData{
+		Content: *sseMsg.Change.Delta,
+		Version: sseMsg.Change.Version,
+	})
+	return sseData
 }
 
-func (ss SessionServer) handlePresence(w http.ResponseWriter, r *http.Request) {
-	clientID := clientIDFromRequest(r)
-	docID := docIDFromRequest(r)
-	doc, exists := ss.docs.FindById(docID)
-	if !exists || len(doc.Clients[clientID].Id()) == 0 { // NOTE: assumes no empty string client IDs
-		ss.handleConnect(w, r)
-		return
-	}
-	body, err := logRequest(w, r)
-	r.Body = body
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	presence := Presence{}
-	json.NewDecoder(body).Decode(&presence)
-	for _, c := range doc.Clients {
-		if c.Id() != clientID {
-			c.Events <- &EventData{Data: presence}
-		}
-	}
+func (ss SessionServer) handleDocEdit(w http.ResponseWriter, r *http.Request) {
+	// TODO: like home, not sure what to do here. Maybe handle
 }
 
-func (ss SessionServer) handleOp(w http.ResponseWriter, r *http.Request) {
-	clientID := clientIDFromRequest(r)
-	docID := docIDFromRequest(r) // TODO: how to find out how to actually get docID
+func (ss SessionServer) handleDocOp(w http.ResponseWriter, r *http.Request) {
+	_, err := r.Cookie("token")
+	if err != nil {
+		ss.writeError(w, "Not logged in.")
+		return
+	}
+	docID, clientID, _, err := parseRequestIDs(r)
+	if err != nil {
+		final.LogFatal(err, "parseRequestIDs failed")
+	}
 	doc, exists := ss.docs.FindById(docID)
 	if !exists || len(doc.Clients[clientID].Id()) == 0 { // NOTE: assumes no empty string client IDs
-		ss.handleConnect(w, r)
+		ss.writeError(w, "doc or client does not exist")
 		return
 	}
-	body, err := logRequest(w, r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	ss.LogRequestIn(w, r)
 
-	if r.Method == http.MethodPost {
+	if r.Method == http.MethodPost { // chris: lowkey why do we even need to check what method it is?
 		type ClientChange struct {
 			Version uint32      `json:"version"`
 			Op      delta.Delta `json:"op"`
 		}
 		var op ClientChange
-		json.NewDecoder(body).Decode(op) // TODO: not sure if this decodes correctly (strings convert into uint32 and Delta?)
+		err = json.NewDecoder(r.Body).Decode(&op) // TODO: not sure if this decodes correctly
+		if err != nil {
+			final.LogFatal(err, "json decoding into ClientChange failed")
+		}
 		change := ot.Change{
 			Delta:   &op.Op,
 			Version: op.Version,
@@ -491,9 +526,66 @@ func (ss SessionServer) handleOp(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (ss SessionServer) handleDoc(w http.ResponseWriter, r *http.Request) {
-	clientID := clientIDFromRequest(r)
-	docID := docIDFromRequest(r) // TODO: again, this is dummy function
+func (ss SessionServer) handleDocPresence(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("token")
+	if err != nil {
+		ss.writeError(w, "Not logged in.")
+		return
+	}
+	docID, clientID, _, err := parseRequestIDs(r)
+	if err != nil {
+		final.LogFatal(err, "parseRequestIDs failed")
+	}
+	doc, exists := ss.docs.FindById(docID)
+	if !exists || len(doc.Clients[clientID].Id()) == 0 { // NOTE: assumes no empty string client IDs
+		ss.writeError(w, "doc or client does not exist")
+		return
+	}
+	ss.LogRequestIn(w, r)
+	acct, err := IdFrom(cookie.Value, ss.config.ClaimKey)
+	if err != nil {
+		ss.writeError(w, "Account not found.")
+		return
+	}
+	acct, exists = ss.accts.FindById(acct.Id())
+	if !exists {
+		final.LogFatal(nil, fmt.Sprintf("Account with ID %s not in ss.accts", acct.Id()))
+	}
+	cursor := util.Cursor{}
+	json.NewDecoder(r.Body).Decode(&cursor)
+	cursor.Name = acct.Username
+	presence := util.Presence{
+		ID:     clientID,
+		Cursor: cursor,
+	}
+	msg := util.Message{
+		Command:    util.NewChanges,
+		DocumentID: docID,
+		ClientID:   clientID,
+		Presence:   presence,
+	}
+	msgBytes, err := util.Serialize(msg)
+	if err != nil {
+		final.LogError(err, "Could not serialize sent presence.")
+	}
+	final.LogDebug(nil, fmt.Sprintf("[session -> ot1][%s] %s %s", r.Method, r.URL.Path, msgBytes))
+	ch, err := ss.amqp.Publish(ss.config.ExchangeName, "direct", "ot1", string(msgBytes))
+	if err != nil {
+		final.LogError(err, "Could not publish presence to amqp.")
+	}
+	defer ch.Close()
+}
+
+func (ss SessionServer) handleDocGet(w http.ResponseWriter, r *http.Request) {
+	_, err := r.Cookie("token")
+	if err != nil {
+		ss.writeError(w, "Not logged in.")
+		return
+	}
+	docID, clientID, _, err := parseRequestIDs(r)
+	if err != nil {
+		final.LogFatal(err, "parseRequestIDs failed")
+	}
 	msg := util.Message{
 		Command:    util.GetHTML,
 		DocumentID: docID,
@@ -506,12 +598,9 @@ func (ss SessionServer) handleDoc(w http.ResponseWriter, r *http.Request) {
 		}
 		ch, err := ss.amqp.Publish(ss.config.ExchangeName, "direct", "ot1", string(msgBytes))
 		if err != nil {
-			final.LogFatal(err, "smth went very wrong publishing")
+			final.LogDebug(err, "could not publish in handleDocGet")
 		}
 		defer ch.Close()
-		if err != nil {
-			final.LogDebug(err, "could not publish in handleDoc")
-		}
 
 		timeout := time.After(10 * time.Second)
 		ch, response := ss.amqp.Consume(ss.config.ExchangeName, "direct", "", "html")
@@ -524,4 +613,8 @@ func (ss SessionServer) handleDoc(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprint(w, msgBytes)
 		}
 	}
+}
+
+func (ss SessionServer) handleHome(w http.ResponseWriter, r *http.Request) {
+	// TODO: actually not sure what to do here.
 }
