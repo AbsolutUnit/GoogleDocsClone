@@ -330,7 +330,19 @@ func (ss SessionServer) handleCollectionCreate(w http.ResponseWriter, r *http.Re
 }
 
 func (ss SessionServer) handleCollectionDelete(w http.ResponseWriter, r *http.Request) {
-
+	var v struct{ Docid string }
+	err := json.NewDecoder(r.Body).Decode(&v)
+	if err != nil {
+		final.LogFatal(err, "could not decode doc id from request body json")
+	}
+	docID := v.Docid
+	// TODO: should we even write back an error if doc does not exist?
+	_, exists := ss.docs.FindById(docID)
+	if !exists {
+		ss.writeError(w, fmt.Sprintf("Document with ID %s cannot be deleted because it does not exist", docID))
+		return
+	}
+	ss.docs.DeleteById(docID)
 }
 
 func (ss SessionServer) handleCollectionList(w http.ResponseWriter, r *http.Request) {
