@@ -31,6 +31,9 @@ func IdFrom(tokenString string, key string) (Account, error) {
 	if err != nil {
 		return Account{}, err
 	}
+	if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		return Account{}, errors.New(fmt.Sprintf("Unexpected signing method: %v", token.Header["alg"]))
+	}
 	if claims, ok := token.Claims.(*AccountClaims); ok && token.Valid {
 		return Account{Email: claims.Email}, nil
 	}
@@ -67,10 +70,6 @@ func (a Account) CreateJwt(key string) (tokenString string, err error) {
 		Email: a.Email,
 	})
 	tokenString, err = token.SignedString(key)
-	// Remove header
-	// if err != nil {
-	// 	tokenString = tokenString[strings.Index(tokenString, ".")+1:]
-	// }
 	return
 }
 
