@@ -13,10 +13,10 @@ createDoc(startServer);
 function createDoc(callback) {
   var connection = backend.connect();
   var doc = connection.get('docs', '1');
-  doc.fetch(function(err) {
+  doc.fetch(function (err) {
     if (err) throw err;
     if (doc.type === null) {
-      doc.create([{insert: '\n'}], 'rich-text', callback);
+      doc.create([{ insert: '\n' }], 'rich-text', callback);
       return;
     }
     callback();
@@ -31,8 +31,8 @@ function startServer() {
   var server = http.createServer(app);
 
   // Connect any incoming WebSocket connection to ShareDB
-  var wss = new WebSocket.Server({server: server});
-  wss.on('connection', function(ws) {
+  var wss = new WebSocket.Server({ server: server });
+  wss.on('connection', function (ws) {
     var stream = new WebSocketJSONStream(ws);
     backend.listen(stream);
   });
