@@ -1,18 +1,23 @@
 package session
 
-type EventData struct {
-	Data any `json:"data"`
-}
+import (
+	"final/internal/util"
 
-type Presence struct {
-	Index  string `json:"index"`
-	Length string `json:"length"`
+	"github.com/fmpwizard/go-quilljs-delta/delta"
+)
+
+type EventData struct {
+	Content  delta.Delta   `json:"content",omitempty`
+	Presence util.Presence `json:"presence",omitempty` // TODO: why is this a pointer?
+	Ack      delta.Delta   `json:"ack",omitempty`
+	Version  uint32        `json:"version",omitempty`
+	Op       delta.Delta
 }
 
 type Client struct {
-	id string
-	Account *Account
-	Events chan *EventData
+	id        string
+	Account   *Account
+	Events    chan *EventData
 	LoggedOut chan bool
 }
 
@@ -23,8 +28,8 @@ func (sc Client) Id() string {
 type SessionDocument struct {
 	id        string
 	Name      string
-	Clients   map[string]Client   // key is a clientId
-	Presences map[string]Presence // key is a clientId
+	Clients   map[string]Client        // key is a clientId
+	Presences map[string]util.Presence // key is a clientId
 }
 
 func (sd SessionDocument) Id() string {

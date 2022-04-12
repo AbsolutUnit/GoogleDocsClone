@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 
-	"github.com/fmpwizard/go-quilljs-delta/delta"
+	"github.com/xxuejie/go-delta-ot/ot"
 )
 
 type CommandType uint32
@@ -18,11 +18,23 @@ const (
 	GetHTML
 )
 
+type Cursor struct {
+	Index  string `json:"index"`
+	Length string `json:"length"`
+	Name   string `json:"name"`
+}
+
+type Presence struct {
+	ID     string `json:"id"`
+	Cursor Cursor `json:"cursor"`
+}
+
 type Message struct {
 	Command    CommandType
 	DocumentID string
 	ClientID   string
-	Delta      delta.Delta // NEXT: no versioning...
+	Change     ot.Change
+	Presence   Presence
 }
 
 func Serialize[Model any](msg Model) ([]byte, error) {

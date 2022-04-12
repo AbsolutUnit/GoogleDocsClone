@@ -17,6 +17,7 @@ import (
 
 	"github.com/fmpwizard/go-quilljs-delta/delta"
 	"github.com/streadway/amqp"
+	"github.com/xxuejie/go-delta-ot/ot"
 )
 
 type AccountClient struct {
@@ -49,24 +50,6 @@ func NewSessionServer(config SessionConfig) (ss SessionServer) {
 	return
 }
 
-// Given a message containing the document id, client id, and transformed change,
-// write appropriate server side events to all those who are editing the document.
-func (ss SessionServer) consumeOTResponse(msg amqp.Delivery) {
-	// TODO Do we need to check any info about the message?
-	transformed, err := util.Deserialize[util.Message](msg.Body)
-	if err != nil {
-		final.LogError(err, "Could not deserialize OT response.")
-	}
-	// TODO handle exists
-	doc, _ := ss.docs.FindById(fmt.Sprint(transformed.DocumentID))
-	for _, c := range doc.Clients {
-		// write data to c if c.Id() is not transformed.clientID
-		if c.Id() != transformed.ClientID {
-			c.Events <- &EventData{Data: transformed.Delta}
-		}
-	}
-}
-
 // Listen for new OT transforms
 func (ss SessionServer) Listen() {
 	ch, responses := ss.amqp.Consume(ss.config.ExchangeName, "direct", "session", "session")
@@ -89,6 +72,30 @@ func (ss SessionServer) Listen() {
 	ss.stoppingChan <- true
 }
 
+// Given a util.Message, write appropriate server side events to all those who are editing the document.
+func (ss SessionServer) consumeOTResponse(msg amqp.Delivery) {
+	otMsg, err := util.Deserialize[util.Message](msg.Body)
+	if err != nil {
+		final.LogError(err, "Could not deserialize OT response.")
+	}
+	eventMsg := EventData{}
+	if (otMsg.Change != ot.Change{}) {
+		eventMsg.Op = *otMsg.Change.Delta
+	} else {
+		eventMsg.Presence = otMsg.Presence
+	}
+	doc, _ := ss.docs.FindById(fmt.Sprint(otMsg.DocumentID))
+	for _, c := range doc.Clients {
+		if c.Id() != otMsg.ClientID {
+			c.Events <- &eventMsg
+		} else {
+			if (otMsg.Change != ot.Change{}) {
+				c.Events <- &EventData{Ack: eventMsg.Op}
+			} // don't send anything if presence
+		}
+	}
+}
+
 func (ss SessionServer) addCse356Header(w http.ResponseWriter) {
 	w.Header().Add("X-CSE356", ss.config.Cse356Id)
 }
@@ -99,12 +106,12 @@ func (ss SessionServer) addSSEHeaders(w http.ResponseWriter) {
 	w.Header().Set("Connection", "keep-alive")
 }
 
-func (ss SessionServer) writeError(w http.ResponseWriter, error string) {
+func (ss SessionServer) writeError(w http.ResponseWriter, err string) {
 	type respError struct {
 		Error string `json:"error"`
 	}
 	// TODO maybe add logging?
-	json.NewEncoder(w).Encode(respError{Error: error})
+	json.NewEncoder(w).Encode(respError{Error: err})
 }
 
 func (ss SessionServer) LogRequestIn(w http.ResponseWriter, r *http.Request) {
@@ -112,7 +119,7 @@ func (ss SessionServer) LogRequestIn(w http.ResponseWriter, r *http.Request) {
 
 	buf, bodyErr := ioutil.ReadAll(r.Body)
 	if bodyErr != nil {
-		final.LogError("Could not deserialize body.")
+		final.LogError(bodyErr, "Could not deserialize body.")
 		return
 	}
 	rdr1 := ioutil.NopCloser(bytes.NewBuffer(buf))
@@ -127,7 +134,7 @@ func (ss SessionServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ss.addCse356Header(w)
 	ss.LogRequestIn(w, r)
 
-	defer r.Body.Close()
+	defer r.Body.Close() // TODO: is this necessary?
 	// switch on the endpoints
 	// ASSUMPTION: "connect", "op", "doc" not part of session id
 	switch {
@@ -273,7 +280,6 @@ func (ss SessionServer) retrieveFullDocument(doc SessionDocument, clientID strin
 	if err != nil {
 		final.LogError(err, "Could not serialize message to OT server.")
 	}
-
 	// Send the message to the OT server.
 	ch, err := ss.amqp.Publish(ss.config.ExchangeName, "direct", "ot1", string(msg))
 	if err != nil {
@@ -290,61 +296,72 @@ func (ss SessionServer) retrieveFullDocument(doc SessionDocument, clientID strin
 	if err != nil {
 		final.LogError(err, "Could not deserialize message from OT server.")
 	}
-	sseData, _ := util.Serialize(EventData{Data: struct {
-		Content any `json:"content"`
-	}{Content: sseMsg.Delta}})
+	sseData, _ := util.Serialize(EventData{
+		Content: *sseMsg.Change.Delta,
+		Version: sseMsg.Change.Version,
+	})
 	return sseData
 }
 
-// Parse clientID from r
+// TODO: fix
 func clientIDFromRequest(r *http.Request) string {
 	lastSlash := strings.LastIndex(r.URL.Path, "/")
 	return r.URL.Path[lastSlash+1:]
 }
 
+// TODO: fix
 func docIDFromRequest(r *http.Request) string {
 	return "1"
 }
 
 func (ss SessionServer) handleConnect(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("token")
+	if err != nil {
+		ss.writeError(w, "Not logged in.")
+		return
+	}
 	ss.addCse356Header(w)
 	ss.addSSEHeaders(w)
 
 	clientID := clientIDFromRequest(r)
 	docID := docIDFromRequest(r)
 	doc, exists := ss.docs.FindById(docID)
-
 	if !exists {
-		clientMap := make(map[string]Client)
-		presenceMap := make(map[string]Presence)
-		eventsChan := make(chan *EventData)
-		clientMap[clientID] = Client{
-			id:     clientID,
-			Events: eventsChan,
-		}
-		presenceMap[clientID] = Presence{}
-		newDoc := SessionDocument{
-			id:        docID,
-			Name:      "Untitled Document",
-			Clients:   clientMap,
-			Presences: presenceMap,
-		}
-		ss.docs.Store(newDoc)
-		doc = newDoc
-		newDocMsg := util.Message{
-			Command:    util.NewDoc,
-			DocumentID: docID,
-			ClientID:   clientID,
-			// Delta is just insert newline char, handled by ot server
-		}
-		newDocMsgBytes, err := util.Serialize(newDocMsg)
-		if err != nil {
-			final.LogFatal(err, "failed to serialize message")
-		}
-		ss.amqp.Publish(ss.config.ExchangeName, "direct", "ot1", string(newDocMsgBytes))
+		ss.writeError(w, fmt.Sprint("Document with ID %s does not exist", docID))
+		return
 	}
 
-	// doc does exist, go thru new client flow if we can't find in doc.Clients
+	// TODO: move this logic to create document
+	// if !exists {
+	// 	clientMap := make(map[string]Client)
+	// 	presenceMap := make(map[string]util.Presence)
+	// 	eventsChan := make(chan *EventData)
+	// 	clientMap[clientID] = Client{
+	// 		id:     clientID,
+	// 		Events: eventsChan,
+	// 	}
+	// 	presenceMap[clientID] = Presence{}
+	// 	newDoc := SessionDocument{
+	// 		id:        docID,
+	// 		Name:      "Untitled Document",
+	// 		Clients:   clientMap,
+	// 		Presences: presenceMap,
+	// 	}
+	// 	ss.docs.Store(newDoc)
+	// 	doc = newDoc
+	// 	newDocMsg := util.Message{
+	// 		Command:    util.NewDoc,
+	// 		DocumentID: docID,
+	// 		ClientID:   clientID,
+	// 		// Delta is just insert newline char, handled by ot server
+	// 	}
+	// 	newDocMsgBytes, err := util.Serialize(newDocMsg)
+	// 	if err != nil {
+	// 		final.LogFatal(err, "failed to serialize message")
+	// 	}
+	// 	ss.amqp.Publish(ss.config.ExchangeName, "direct", "ot1", string(newDocMsgBytes))
+	// }
+
 	client, exists := doc.Clients[clientID]
 	// final.LogDebug(nil, fmt.Sprintf("Checked for client in storage. Exists: %t", exists))
 	timeout := time.After(3 * time.Second) // If this client has not connected yet
@@ -354,34 +371,45 @@ func (ss SessionServer) handleConnect(w http.ResponseWriter, r *http.Request) {
 	existsChan := make(chan []byte)
 	go func() {
 		final.LogDebug(nil, fmt.Sprintf("in go func, exists is %t", exists))
-		if !exists { // pass in contents delta, then presence data of ALL existing clients
-			sseData = ss.retrieveFullDocument(doc, clientID)
-			doc.Clients[clientID] = Client{
+		if !exists {
+			newClient := Client{
 				id:     clientID,
 				Events: make(chan *EventData),
 			}
+			doc.Clients[clientID] = newClient
+			acctID, err := IdFrom(cookie.Value, ss.config.ClaimKey)
+			if err != nil {
+				ss.writeError(w, "Account somehow doesn't exist")
+				return
+			}
+			acctClients := ss.accCache.FindByKey("AccountId", acctID)
+			acctClients.Clients = append(acctClients.Clients, &newClient)
+			ss.accCache.Store(acctClients)
+			sseData = ss.retrieveFullDocument(doc, clientID)
 			existsChan <- sseData
-			presenceBytes, err := util.Serialize(doc.Presences)
+			presenceBytes, err := util.Serialize(doc.Presences) // NOTE: we do not have to do this!!! see pizza
 			if err != nil {
 				final.LogFatal(err, "failed to serialize presences")
 			}
 			existsChan <- presenceBytes
 		}
 	}()
-	// select the results.
-	select {
-	case msg := <-client.Events: // transformed op from OT, or presence change
-		sseData, _ = util.Serialize(*msg)
-		final.LogDebug(nil, fmt.Sprintf("[%s][out][op] %s %s", r.Method, r.URL.Path, sseData))
-		fmt.Fprintf(w, "%s", sseData)
-	case data := <-existsChan: //
-		final.LogDebug(nil, fmt.Sprintf("[%s][out][doc] %s %s", r.Method, r.URL.Path, sseData))
-		fmt.Fprintf(w, "%s", data)
-	case <-timeout:
-	}
 
-	if f, ok := w.(http.Flusher); ok {
-		f.Flush()
+	for {
+		// select the results.
+		select {
+		case msg := <-client.Events: // transformed op from OT, or presence change
+			sseData, _ = util.Serialize(*msg)
+			final.LogDebug(nil, fmt.Sprintf("[%s][out][op] %s %s", r.Method, r.URL.Path, sseData))
+			fmt.Fprintf(w, "data: %s\n\n", sseData)
+		case data := <-existsChan: // contents or presenceBytes
+			final.LogDebug(nil, fmt.Sprintf("[%s][out][doc] %s %s", r.Method, r.URL.Path, sseData))
+			fmt.Fprintf(w, "data: %s\n\n", data)
+		case <-timeout:
+		}
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
 	}
 }
 
@@ -433,29 +461,34 @@ func (ss SessionServer) handleOp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var msgs []util.Message
 	if r.Method == http.MethodPost {
-		var opsArray []delta.Delta
-		json.NewDecoder(body).Decode(&opsArray) // TODO: need to double check this works (decoding into uninitialized slice)
-		for i, op := range opsArray {
-			msgs[i] = util.Message{
-				Command:    util.NewChanges,
-				DocumentID: docID,
-				ClientID:   clientID,
-				Delta:      op,
-			}
+		type ClientChange struct {
+			Version uint32      `json:"version"`
+			Op      delta.Delta `json:"op"`
 		}
+		var op ClientChange
+		json.NewDecoder(body).Decode(op) // TODO: not sure if this decodes correctly (strings convert into uint32 and Delta?)
+		change := ot.Change{
+			Delta:   &op.Op,
+			Version: op.Version,
+		}
+		msg := util.Message{
+			Command:    util.NewChanges,
+			DocumentID: docID,
+			ClientID:   clientID,
+			Change:     change,
+		}
+		msgBytes, err := util.Serialize(msg)
+		if err != nil {
+			final.LogError(err, "Could not serialize sent op.")
+		}
+		final.LogDebug(nil, fmt.Sprintf("[session -> ot1][%s] %s %s", r.Method, r.URL.Path, msgBytes))
+		ch, err := ss.amqp.Publish(ss.config.ExchangeName, "direct", "ot1", string(msgBytes))
+		if err != nil {
+			final.LogError(err, "Could not publish op to amqp.")
+		}
+		defer ch.Close()
 	}
-	msgBytes, err := util.Serialize(msgs)
-	if err != nil {
-		final.LogError(err, "Could not serialize sent op.")
-	}
-	final.LogDebug(nil, fmt.Sprintf("[session -> ot1][%s] %s %s", r.Method, r.URL.Path, msgBytes))
-	ch, err := ss.amqp.Publish(ss.config.ExchangeName, "direct", "ot1", string(msgBytes))
-	if err != nil {
-		final.LogError(err, "Could not publish op to amqp.")
-	}
-	defer ch.Close()
 }
 
 func (ss SessionServer) handleDoc(w http.ResponseWriter, r *http.Request) {
