@@ -28,6 +28,9 @@ func IdFrom(tokenString string, key string) (Account, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &AccountClaims{}, func(token *jwt.Token) (any, error) {
 		return []byte(key), nil
 	})
+	if err != nil {
+		return Account{}, err
+	}
 	if claims, ok := token.Claims.(*AccountClaims); ok && token.Valid {
 		return Account{Email: claims.Email}, nil
 	}
