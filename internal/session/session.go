@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/fmpwizard/go-quilljs-delta/delta"
+	"github.com/google/uuid"
 	"github.com/streadway/amqp"
 	"github.com/xxuejie/go-delta-ot/ot"
 )
@@ -299,8 +300,33 @@ func (ss SessionServer) handleCollection(w http.ResponseWriter, r *http.Request)
 }
 
 func (ss SessionServer) handleCollectionCreate(w http.ResponseWriter, r *http.Request) {
-	// don't need to check existence. We do docID creation
-	// check auth and that's it?
+	docID := uuid.New().String()
+	clientMap := make(map[string]Client)
+	presenceMap := make(map[string]util.Presence)
+	var name struct{ Name string }
+	err := json.NewDecoder(r.Body).Decode(&name)
+	if err != nil {
+		final.LogFatal(err, "could not decode new doc name from request body json")
+	}
+	newDoc := SessionDocument{
+		id:        docID,
+		Name:      name.Name,
+		Clients:   clientMap,
+		Presences: presenceMap,
+	}
+	ss.docs.Store(newDoc)
+	msg := util.Message{
+		Command:    util.NewDoc,
+		DocumentID: docID,
+	}
+	msgBytes, err := util.Serialize(msg)
+	if err != nil {
+		final.LogFatal(err, "failed to serialize message")
+	}
+	ss.amqp.Publish(ss.config.ExchangeName, "direct", "ot1", string(msgBytes))
+	json.NewEncoder(w).Encode(struct {
+		Docid string `json:"docid"`
+	}{Docid: docID})
 }
 
 func (ss SessionServer) handleCollectionDelete(w http.ResponseWriter, r *http.Request) {
@@ -345,7 +371,6 @@ func (ss SessionServer) handleDocConnect(w http.ResponseWriter, r *http.Request)
 	}
 	ss.addCse356Header(w)
 	ss.addSSEHeaders(w)
-
 	docID, clientID, _, err := parseRequestIDs(r)
 	if err != nil {
 		final.LogFatal(err, "parseRequestIDs failed")
@@ -355,38 +380,6 @@ func (ss SessionServer) handleDocConnect(w http.ResponseWriter, r *http.Request)
 		ss.writeError(w, fmt.Sprintf("Document with ID %s does not exist", docID))
 		return
 	}
-
-	// TODO: move this logic to create document
-	// if !exists {
-	// 	clientMap := make(map[string]Client)
-	// 	presenceMap := make(map[string]util.Presence)
-	// 	eventsChan := make(chan *EventData)
-	// 	clientMap[clientID] = Client{
-	// 		id:     clientID,
-	// 		Events: eventsChan,
-	// 	}
-	// 	presenceMap[clientID] = Presence{}
-	// 	newDoc := SessionDocument{
-	// 		id:        docID,
-	// 		Name:      "Untitled Document",
-	// 		Clients:   clientMap,
-	// 		Presences: presenceMap,
-	// 	}
-	// 	ss.docs.Store(newDoc)
-	// 	doc = newDoc
-	// 	newDocMsg := util.Message{
-	// 		Command:    util.NewDoc,
-	// 		DocumentID: docID,
-	// 		ClientID:   clientID,
-	// 		// Delta is just insert newline char, handled by ot server
-	// 	}
-	// 	newDocMsgBytes, err := util.Serialize(newDocMsg)
-	// 	if err != nil {
-	// 		final.LogFatal(err, "failed to serialize message")
-	// 	}
-	// 	ss.amqp.Publish(ss.config.ExchangeName, "direct", "ot1", string(newDocMsgBytes))
-	// }
-
 	client, exists := doc.Clients[clientID]
 	// final.LogDebug(nil, fmt.Sprintf("Checked for client in storage. Exists: %t", exists))
 	timeout := time.After(3 * time.Second) // If this client has not connected yet
@@ -419,7 +412,6 @@ func (ss SessionServer) handleDocConnect(w http.ResponseWriter, r *http.Request)
 			existsChan <- presenceBytes
 		}
 	}()
-
 	for {
 		// select the results.
 		select {
@@ -491,8 +483,6 @@ func (ss SessionServer) handleDocOp(w http.ResponseWriter, r *http.Request) {
 		ss.writeError(w, "doc or client does not exist")
 		return
 	}
-	ss.LogRequestIn(w, r)
-
 	if r.Method == http.MethodPost { // chris: lowkey why do we even need to check what method it is?
 		type ClientChange struct {
 			Version uint32      `json:"version"`
@@ -541,7 +531,6 @@ func (ss SessionServer) handleDocPresence(w http.ResponseWriter, r *http.Request
 		ss.writeError(w, "doc or client does not exist")
 		return
 	}
-	ss.LogRequestIn(w, r)
 	acct, err := IdFrom(cookie.Value, ss.config.ClaimKey)
 	if err != nil {
 		ss.writeError(w, "Account not found.")
