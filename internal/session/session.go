@@ -4,15 +4,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"final"
-	"final/internal/rbmq"
-	"final/internal/store"
-	"final/internal/util"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
+
+	"final"
+	"final/internal/rbmq"
+	"final/internal/store"
+	"final/internal/util"
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/fmpwizard/go-quilljs-delta/delta"
@@ -219,7 +220,6 @@ func (ss SessionServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/users") {
 		ss.handleUsers(w, r)
 	} else if strings.HasPrefix(r.URL.Path, "/home") {
-
 	} else {
 		// Check for authentication.
 		cookie, err := r.Cookie("token")

@@ -2,10 +2,11 @@ package session
 
 import (
 	"encoding/json"
-	"final/internal/util"
 	"fmt"
 	"net/http"
 	"strings"
+
+	"final/internal/util"
 )
 
 // Handle anything under /collection

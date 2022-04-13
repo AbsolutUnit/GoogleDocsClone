@@ -2,12 +2,13 @@ package session
 
 import (
 	"encoding/json"
-	"final"
-	"final/internal/util"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
+
+	"final"
+	"final/internal/util"
 
 	"github.com/fmpwizard/go-quilljs-delta/delta"
 	"github.com/xxuejie/go-delta-ot/ot"
@@ -82,7 +83,7 @@ func (ss SessionServer) handleDocConnect(email string, w http.ResponseWriter, r 
 	writeSseData(&docMsg)
 	for {
 		// Transformed op from OT, or presence change
-		var sseMsg = <-client.Events
+		sseMsg := <-client.Events
 		writeSseData(sseMsg)
 	}
 }
