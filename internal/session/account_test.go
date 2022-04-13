@@ -31,7 +31,7 @@ func TestTestPassword(t *testing.T) {
 	}
 }
 
-func TestIdFrom(t *testing.T) {
+func TestEmailFrom(t *testing.T) {
 	cases := []struct {
 		desc  string
 		token string
@@ -65,10 +65,10 @@ func TestIdFrom(t *testing.T) {
 	}}
 
 	for _, v := range cases {
-		email, err := IdFrom(v.token, v.key)
-		if email.Email != v.email && (err != nil) != v.isErr {
+		email, err := EmailFrom(v.token, v.key)
+		if email != v.email && (err != nil) != v.isErr {
 			t.Fatalf("%s: expected email: %s error: %t got email: %s error: %s",
-				v.desc, v.email, v.isErr, email.Email, err)
+				v.desc, v.email, v.isErr, email, err)
 		}
 	}
 }
