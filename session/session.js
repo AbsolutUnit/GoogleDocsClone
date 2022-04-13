@@ -84,8 +84,28 @@ app.listen(8080, () => {
 });
 
 async function sendMail(recipient, user, key) {
-  //URGH POSTFIX SMTP SERVER
-  const link = `http://localhost:8080/users/verify/?name=${user}&key=${key}`; // is this GET format okay
+  //URGH POSTFIX SMTP SERVER MILESTONE 3
+  const link = `http://localhost:8080/users/verify/?name=${user}&key=${key}`;
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: 'kychao@cs.stonybrook.edu',
+      pass: 'Sbcs11203100', // naturally, replace both with your real credentials or an application-specific password
+    },
+  });
+  const mailOptions = {
+    from: 'doogleGocs.com',
+    to: recipient,
+    subject: 'Doogle Gocs Verification Email',
+    text: link,
+  };
+  transporter.sendMail(mailOptions, function (error, info) {
+    if (error) {
+      console.log(error);
+    } else {
+      console.log('Email sent: ' + info.response);
+    }
+  });
 }
 
 //assumes body has name, email, password.
@@ -145,7 +165,6 @@ function handleLogout(req, res, next) {
 
 //assumes request sends name and key
 async function handleVerify(req, res, next) {
-  // TODO see if this GET request parsing actually work
   const name = req.query.name,
     key = req.query.key;
   const user = await UserModel.findOne({ name });
