@@ -136,7 +136,7 @@ func (ss SessionServer) consumeOTResponse(msg amqp.Delivery) {
 			c.Events <- &eventMsg
 		} else {
 			if (otMsg.Change != ot.Change{}) {
-				c.Events <- &EventData{Ack: eventMsg.Op}
+				c.Events <- &EventData{Ack: eventMsg.Op} // NOTE: this might be wrong since it is not the untransformed op
 			} // don't send anything if presence
 		}
 	}

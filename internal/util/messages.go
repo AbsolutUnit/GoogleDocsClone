@@ -19,13 +19,13 @@ const (
 )
 
 type Cursor struct {
-	Index  string `json:"index"`
-	Length string `json:"length"`
+	Index  int    `json:"index"`
+	Length int    `json:"length"`
 	Name   string `json:"name"`
 }
 
 type Presence struct {
-	ID     string `json:"id"`
+	ID     string `json:"id"` // client id
 	Cursor Cursor `json:"cursor"`
 }
 
