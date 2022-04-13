@@ -13,10 +13,11 @@ const MongoDBSession = require('connect-mongodb-session')(session);
 const mongoose = require('mongoose');
 const nodemailer = require('nodemailer');
 
+const userController = require('./controllers/userController');
+const collectionController = require('./controllers/collectionController');
+
 const Connection = Client.Connection;
 Client.types.register(richText.type);
-
-const UserModel = require('./User');
 
 const mongoURI =
   'mongodb+srv://kevinchao:fJkTywtN4BmDnL1x@cluster0.28ur3.mongodb.net/sessions?retryWrites=true&w=majority';
@@ -39,7 +40,6 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
-//app.use(express.static(__dirname + '../client'));
 app.use(express.static('../client')); // serve static files
 app.use(express.urlencoded({ extended: true }));
 app.use(
@@ -67,121 +67,25 @@ const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions);
 const connection = new Connection(socket);
 
 // data structures
-const clients = {};
+const clients = {}; //TODO change clients
+const documents = {};
 
 // endpoints
 app.get('/connect/:id', handleConnect);
 app.post('/op/:id', isAuth, handleOp);
 app.get('/doc/:id', isAuth, handleDoc);
 app.get('/', handleStart);
-app.post('/users/signup', handleAddUser);
-app.post('/users/login', handleLogin);
-app.post('/users/logout', handleLogout);
-app.get('/users/verify', handleVerify);
+app.post('/users/signup', userController.handleAddUser);
+app.post('/users/login', userController.handleLogin);
+app.post('/users/logout', userController.handleLogout);
+app.get('/users/verify', userController.handleVerify);
+app.post('/collection/create', isAuth, collectionController.handleCreate);
+app.post('/collection/delete', isAuth, collectionController.handleDelete);
+app.post('/collection/list', isAuth, collectionController.handleList);
 
 app.listen(8080, () => {
   console.log('Listening on port 8080');
 });
-
-async function sendMail(recipient, user, key) {
-  //URGH POSTFIX SMTP SERVER MILESTONE 3
-  const link = `http://localhost:8080/users/verify/?name=${user}&key=${key}`;
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: 'kychao@cs.stonybrook.edu',
-      pass: 'Sbcs11203100', // naturally, replace both with your real credentials or an application-specific password
-    },
-  });
-  const mailOptions = {
-    from: 'doogleGocs.com',
-    to: recipient,
-    subject: 'Doogle Gocs Verification Email',
-    text: link,
-  };
-  transporter.sendMail(mailOptions, function (error, info) {
-    if (error) {
-      console.log(error);
-    } else {
-      console.log('Email sent: ' + info.response);
-    }
-  });
-}
-
-//assumes body has name, email, password.
-async function handleAddUser(req, res, next) {
-  //TODO add error handling for missing password or name
-  const { name, email, password } = req.body;
-  let user = await UserModel.findOne({ name });
-  if (user) {
-    console.log('name already taken!');
-    res.end();
-    return;
-  }
-  const key = parseInt(Math.random() * 1000000000);
-  const active = false;
-  user = new UserModel({
-    name,
-    password, // TODO: do i want to encrypt this password
-    email,
-    active,
-    key, // TODO: encrypt this too if i am not lazy
-  });
-  await user.save();
-  console.log('user saved');
-
-  //send email for verification, clicking link will hit endpoint
-  sendMail(email, name, key);
-  res.end();
-}
-
-//email takes in an email, and password
-async function handleLogin(req, res, next) {
-  const { email, password } = req.body;
-  const user = await UserModel.findOne({ email });
-
-  if (!user) {
-    console.log('User does not exist!');
-  } else if (password != user.password) {
-    console.log('Wrong Password');
-  } else if (!user.active) {
-    console.log('User is not verified yet');
-  } else {
-    console.log('Successful login');
-    req.session.isAuth = true;
-    res.write(user.name);
-  }
-  res.end();
-  return;
-}
-
-function handleLogout(req, res, next) {
-  req.session.destroy((err) => {
-    if (err) throw err;
-    console.log('logged out');
-  });
-  res.end();
-}
-
-//assumes request sends name and key
-async function handleVerify(req, res, next) {
-  const name = req.query.name,
-    key = req.query.key;
-  const user = await UserModel.findOne({ name });
-  if (!user || user.active) {
-    console.log('user not found or was already active');
-    res.end();
-    return;
-  }
-  if (key == user.key) {
-    user.active = true; // i hope this works
-    await user.save();
-  } else {
-    console.log('invalid key matching, user is not valid');
-  }
-  console.log('user verified!');
-  res.end();
-}
 
 function handleStart(req, res, next) {
   res.end();
@@ -229,9 +133,9 @@ function handleConnect(req, res, next) {
 
 function handleOp(req, res, next) {
   //console.log("op req.body ", req.body)
-  // console.log("handleOp req.body ", req.body)
+  //console.log("handleOp req.body ", req.body)
   const clientID = req.params.id; // should we check to make sure this client exists? How do that?
-  // console.log("clients[clientID]: ", clients[clientID].clientID)
+  //console.log("clients[clientID]: ", clients[clientID].clientID)
   for (let op of req.body) {
     //console.log("op to be submitted ", op)
     clients[clientID].doc.submitOp(op);

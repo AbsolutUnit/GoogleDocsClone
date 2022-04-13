@@ -7,9 +7,10 @@ var WebSocketJSONStream = require('@teamwork/websocket-json-stream');
 
 ShareDB.types.register(richText.type);
 var backend = new ShareDB();
-createDoc(startServer);
+//createDoc(startServer);
+startServer();
 
-// Create initial document then fire callback
+// Create initial document then fire callback NOT USED
 function createDoc(callback) {
   var connection = backend.connect();
   var doc = connection.get('docs', '1');
