@@ -12,19 +12,21 @@ const (
 	SessionConfigCassandra                     = "cassandra"
 )
 
+type SessionConfigDb struct {
+	Type     SessionConfigDbType `json:"type"`
+	Uri      string              `json:"uri"`
+	DbName   string              `json:"dbName"`
+	Password string              `json:"password"`
+}
+
 type SessionConfig struct {
-	AmqpUrl  string `json:"amqpUrl"`
-	ClaimKey string `json:"claimKey"`
-	Cse356Id string `json:"cse356Id"`
-	Db       struct {
-		Type     SessionConfigDbType `json:"type"`
-		Uri      string              `json:"uri"`
-		DbName   string              `json:"dbName"`
-		Password string              `json:"password"`
-	} `json:"db"`
-	ExchangeName string `json:"exchangeName"`
-	HostName string `json:"hostname"`
-	VerifyKey string `json:"verifyKey"`
+	AmqpUrl      string          `json:"amqpUrl"`
+	ClaimKey     string          `json:"claimKey"`
+	Cse356Id     string          `json:"cse356Id"`
+	Db           SessionConfigDb `json:"db"`
+	ExchangeName string          `json:"exchangeName"`
+	HostName     string          `json:"hostname"`
+	VerifyKey    string          `json:"verifyKey"`
 }
 
 func NewSessionConfig(r io.Reader) (cfg SessionConfig) {
