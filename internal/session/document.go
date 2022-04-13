@@ -21,7 +21,7 @@ func (ss SessionServer) handleDoc(email string, w http.ResponseWriter, r *http.R
 	case strings.HasPrefix(r.URL.Path, "/doc/connect"):
 		ss.handleDocConnect(email, w, r)
 	case strings.HasPrefix(r.URL.Path, "/doc/op"):
-		ss.handleDocOp(w, r)
+		ss.handleDocOp(email, w, r)
 	case strings.HasPrefix(r.URL.Path, "/doc/presence"):
 		ss.handleDocPresence(email, w, r)
 	case strings.HasPrefix(r.URL.Path, "/doc/get"):
@@ -30,6 +30,8 @@ func (ss SessionServer) handleDoc(email string, w http.ResponseWriter, r *http.R
 }
 
 // Start Delta event stream connection to server.
+// Request: {}
+// Response: SSE Events
 func (ss SessionServer) handleDocConnect(email string, w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -85,7 +87,7 @@ func (ss SessionServer) handleDocConnect(email string, w http.ResponseWriter, r 
 	}
 }
 
-// Get the entire document as a []byte to send back to the client over SSE.
+// Get the entire document as an EventData to send back to the client over SSE.
 func (ss SessionServer) retrieveFullDocument(doc SessionDocument, clientID string) EventData {
 	// First, create the serialized data to send to the OT server.
 	msg, err := util.Serialize(util.Message{
@@ -238,7 +240,8 @@ func (ss SessionServer) handleDocPresence(email string, w http.ResponseWriter, r
 func (ss SessionServer) handleDocGet(w http.ResponseWriter, r *http.Request) {
 	docID, clientID, _, err := parseRequestIDs(r)
 	if err != nil {
-		final.LogFatal(err, "parseRequestIDs failed")
+		ss.writeError(w, "Could not parse variables in request URL.")
+		return
 	}
 	msg := util.Message{
 		Command:    util.GetHTML,

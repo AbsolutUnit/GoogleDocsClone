@@ -56,20 +56,20 @@ func (ss SessionServer) handleUsersLogout(w http.ResponseWriter, r *http.Request
 		ss.writeError(w, "Not logged in.")
 		return
 	}
-	account, err := IdFrom(cookie.Value, ss.config.ClaimKey)
+	email, err := EmailFrom(cookie.Value, ss.config.ClaimKey)
 	if err != nil {
 		ss.writeError(w, "Could not logout. Account not found.")
 		return
 	}
 	// TODO
 	// // Close the clients, by looping through the map of account -> client.
-	acct, ok := ss.accCache.FindById(account.Email)
+	acct, ok := ss.accCache.FindById(email)
 	if ok {
 		for _, client := range acct.Clients {
 			client.LoggedOut <- true
 		}
 	}
-	ss.accCache.DeleteById(account.Id())
+	ss.accCache.DeleteById(email)
 	http.SetCookie(w, &http.Cookie{
 		Name:    "token",
 		Value:   "",
@@ -103,12 +103,12 @@ func (ss SessionServer) handleUsersSignup(w http.ResponseWriter, r *http.Request
 func (ss SessionServer) handleUsersVerify(w http.ResponseWriter, r *http.Request) {
 	verifyKey := r.URL.Query()["key"]
 	if len(verifyKey) == 1 {
-		account, err := IdFrom(verifyKey[0], ss.config.VerifyKey)
+		email, err := EmailFrom(verifyKey[0], ss.config.VerifyKey)
 		if err != nil {
 			ss.writeError(w, "Invalid verification key.")
 			return
 		}
-		stored, exists := ss.accDb.FindById(account.Id())
+		stored, exists := ss.accDb.FindById(email)
 		if !exists {
 			ss.writeError(w, "Database error. I hope you aren't hacking us.")
 			return

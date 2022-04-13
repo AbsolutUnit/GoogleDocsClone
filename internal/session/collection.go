@@ -78,7 +78,7 @@ func (ss SessionServer) handleCollectionDelete(w http.ResponseWriter, r *http.Re
 
 	// No need to handle error response.
 	if _, err := ss.docs.DeleteById(body.DocId); err != nil {
-		ss.writeError(w, fmt.Sprintf("Document ID %s could not be deleteed."))
+		ss.writeError(w, fmt.Sprintf("Document ID %s could not be deleted.", body.DocId))
 		return
 	}
 }
