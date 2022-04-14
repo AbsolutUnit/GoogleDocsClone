@@ -11,6 +11,11 @@ import (
 	"final/internal/util"
 )
 
+type RespItems struct { // for getting top 10 docs
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 // Handle anything under /collection
 func (ss SessionServer) handleCollection(accountId string, w http.ResponseWriter, r *http.Request) {
 	switch {
@@ -84,23 +89,24 @@ func (ss SessionServer) handleCollectionDelete(w http.ResponseWriter, r *http.Re
 // Expected request form: {}
 // Expected response form: [{id, name}, ...]
 func (ss SessionServer) handleCollectionList(w http.ResponseWriter, r *http.Request) {
-	allDocs := ss.docs.FindAll()
-	sort.Slice(allDocs, func(i, j int) bool {
-		return allDocs[i].LastModified.After(allDocs[j].LastModified)
-	})
-	top10Docs := allDocs[:10]
-	type respItems struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
-	}
-	top10Resp := make([]respItems, len(top10Docs))
-	for i, k := range top10Docs {
-		top10Resp[i] = respItems{ID: k.Id(), Name: k.Name}
-	}
+	top10Resp := ss.GetTop10()
 	top10RespBytes, err := util.Serialize(top10Resp)
 	if err != nil {
 		final.LogFatal(err, "failed to serialize top 10 response")
 	}
 	final.LogDebug(nil, fmt.Sprintf("top10RespBytes: %v", top10RespBytes))
 	fmt.Fprint(w, top10RespBytes)
+}
+
+func (ss SessionServer) GetTop10() []RespItems {
+	allDocs := ss.docs.FindAll()
+	sort.Slice(allDocs, func(i, j int) bool {
+		return allDocs[i].LastModified.After(allDocs[j].LastModified)
+	})
+	top10Docs := allDocs[:10]
+	top10Resp := make([]RespItems, len(top10Docs))
+	for i, k := range top10Docs {
+		top10Resp[i] = RespItems{ID: k.Id(), Name: k.Name}
+	}
+	return top10Resp
 }
