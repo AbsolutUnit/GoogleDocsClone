@@ -6,7 +6,7 @@ import (
 
 func TestTestPassword(t *testing.T) {
 	account := Account{
-		Username: "test",
+		Name: "test",
 		Password: "password",
 		Email:    "test@example.com",
 		Verified: false,
@@ -19,12 +19,12 @@ func TestTestPassword(t *testing.T) {
 		want     bool
 	}{
 		{"blank", "", "", false},
-		{"unhashed", account.Username, account.Password, false},
+		{"unhashed", account.Name, account.Password, false},
 		{"correct", "test", "$2y$10$8Tt5PeHfjxDHUWgr/E5im.sBIZfwZGtQ7HfZPJfkABNMBm4h3Rw3C", true},
 	}
 
 	for _, v := range cases {
-		got := account.TestPassword(Account{Username: v.username, Password: v.password})
+		got := account.TestPassword(Account{Name: v.username, Password: v.password})
 		if got != v.want {
 			t.Fatalf("%s: got %t want %t", v.desc, got, v.want)
 		}
@@ -65,7 +65,7 @@ func TestEmailFrom(t *testing.T) {
 	}}
 
 	for _, v := range cases {
-		email, err := EmailFrom(v.token, v.key)
+		email, err := IdFrom(v.token, v.key)
 		if email != v.email && (err != nil) != v.isErr {
 			t.Fatalf("%s: expected email: %s error: %t got email: %s error: %s",
 				v.desc, v.email, v.isErr, email, err)
@@ -80,12 +80,12 @@ func TestSendVerificationEmail(t *testing.T) {
 	}{
 		{
 			desc:  "hope",
-			email: "uhssboyyvfzjgorekb@nthrw.com",
+			email: "kporter@protonmail.com",
 		},
 	}
 	for _, v := range cases {
-		account := Account{Email: v.email, Username: "test"}
-		err := account.SendVerificationEmail("testing", "localhost")
+		account := Account{Email: v.email, Name: "test"}
+		err := account.SendVerificationEmail("testing", "backyardigans", "", "root", "cse356!!!312asdacm", "backyardigans.cse356.compas.cs.stonybrook.edu")
 		if err != nil {
 			t.Fatalf("%s: could not send to email: %s error: %s", v.desc, v.email, err)
 		}

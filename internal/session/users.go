@@ -1,7 +1,10 @@
 package session
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
+	"final"
 	"net/http"
 	"strings"
 	"time"
@@ -25,7 +28,12 @@ func (ss SessionServer) handleUsersLogin(w http.ResponseWriter, r *http.Request)
 	account := Account{}
 	json.NewDecoder(r.Body).Decode(&account)
 
-	stored := ss.accDb.FindByKey("email", account.Email)
+	stored, err := ss.accDb.FindByKey("email", account.Email)
+	if err != nil {
+		ss.writeError(w, "Account not found")
+		return
+	}
+
 	if !stored.Verified {
 		ss.writeError(w, "User is not verified.")
 		return
@@ -34,6 +42,7 @@ func (ss SessionServer) handleUsersLogin(w http.ResponseWriter, r *http.Request)
 		ss.writeError(w, "Wrong password.")
 		return
 	}
+
 	tokenString, err := account.CreateJwt(ss.config.ClaimKey)
 	if err != nil {
 		ss.writeError(w, "Internal error: could not generate session token.")
@@ -47,7 +56,7 @@ func (ss SessionServer) handleUsersLogin(w http.ResponseWriter, r *http.Request)
 	// Write the account name in response.
 	json.NewEncoder(w).Encode(struct {
 		Name string `json:"name"`
-	}{Name: account.Username})
+	}{Name: stored.Name})
 }
 
 func (ss SessionServer) handleUsersLogout(w http.ResponseWriter, r *http.Request) {
@@ -56,15 +65,15 @@ func (ss SessionServer) handleUsersLogout(w http.ResponseWriter, r *http.Request
 		ss.writeError(w, "Not logged in.")
 		return
 	}
-	email, err := EmailFrom(cookie.Value, ss.config.ClaimKey)
+	email, err := IdFrom(cookie.Value, ss.config.ClaimKey)
 	if err != nil {
 		ss.writeError(w, "Could not logout. Account not found.")
 		return
 	}
 	// TODO
 	// // Close the clients, by looping through the map of account -> client.
-	acct, ok := ss.accCache.FindById(email)
-	if ok {
+	acct, err := ss.accCache.FindById(email)
+	if err == nil {
 		for _, client := range acct.Clients {
 			client.LoggedOut <- true
 		}
@@ -80,10 +89,13 @@ func (ss SessionServer) handleUsersLogout(w http.ResponseWriter, r *http.Request
 }
 
 func (ss SessionServer) handleUsersSignup(w http.ResponseWriter, r *http.Request) {
-	account := Account{}
+	account := NewAccount()
 	json.NewDecoder(r.Body).Decode(&account)
 	account.Verified = false
-	stored := ss.accDb.FindByKey("email", account.Email)
+	// Don't check error value here, since anything will get caught below.
+	// No documents found: stored.Email != account.Email
+	// Anything else: stored.Email != account.Email
+	stored, _ := ss.accDb.FindByKey("email", account.Email)
 	if stored.Email == account.Email { // maybe I only have to check if its not empty?
 		ss.writeError(w, "Account already exists with that email.")
 		return
@@ -92,28 +104,34 @@ func (ss SessionServer) handleUsersSignup(w http.ResponseWriter, r *http.Request
 		ss.writeError(w, "Internal error: failed to hash password.")
 		return
 	}
+	final.LogDebug(nil, account.Password)
 	if err := ss.accDb.Store(account); err != nil {
 		ss.writeError(w, "Internal error: could not store new account.")
 		return
 	}
-	if err := account.SendVerificationEmail(ss.config.VerifyKey, ss.config.Hostname); err != nil {
+	smtpCfg := ss.config.Smtp
+	verifyKey := hex.EncodeToString(md5.New().Sum([]byte(account.Email + ss.config.VerifyKey)))
+	ss.verifyKeys[verifyKey] = account.Id()
+	err := account.SendVerificationEmail(verifyKey, smtpCfg.Name, smtpCfg.Identity,
+		smtpCfg.Username, smtpCfg.Password, smtpCfg.Host)
+	if err != nil {
 		ss.writeError(w, err.Error())
 		return
 	}
 
-	ss.writeOk(w, "")
+	ss.writeOk(w, "Signed up.")
 }
 
 func (ss SessionServer) handleUsersVerify(w http.ResponseWriter, r *http.Request) {
 	verifyKey := r.URL.Query()["key"]
 	if len(verifyKey) == 1 {
-		email, err := EmailFrom(verifyKey[0], ss.config.VerifyKey)
-		if err != nil {
+		accountId, exists := ss.verifyKeys[verifyKey[0]]
+		if !exists {
 			ss.writeError(w, "Invalid verification key.")
 			return
 		}
-		stored, exists := ss.accDb.FindById(email)
-		if !exists {
+		stored, err := ss.accDb.FindById(accountId)
+		if err != nil {
 			ss.writeError(w, "Database error. I hope you aren't hacking us.")
 			return
 		}

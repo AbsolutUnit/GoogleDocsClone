@@ -19,14 +19,23 @@ type SessionConfigDb struct {
 	Password string              `json:"password"`
 }
 
+type SessionConfigSMTP struct {
+	Name     string `json:"name"`
+	Identity string `json:"identity"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Host     string `json:"host"`
+}
+
 type SessionConfig struct {
-	AmqpUrl      string          `json:"amqpUrl"`
-	ClaimKey     string          `json:"claimKey"`
-	Cse356Id     string          `json:"cse356Id"`
-	Db           SessionConfigDb `json:"db"`
-	ExchangeName string          `json:"exchangeName"`
-	Hostname     string          `json:"hostname"`
-	VerifyKey    string          `json:"verifyKey"`
+	AmqpUrl      string            `json:"amqpUrl"`
+	ClaimKey     string            `json:"claimKey"`
+	Cse356Id     string            `json:"cse356Id"`
+	Db           SessionConfigDb   `json:"db"`
+	ExchangeName string            `json:"exchangeName"`
+	Hostname     string            `json:"hostname"`
+	Smtp         SessionConfigSMTP `json:"smtp"`
+	VerifyKey    string            `json:"verifyKey"`
 }
 
 func NewSessionConfig(r io.Reader) (cfg SessionConfig) {

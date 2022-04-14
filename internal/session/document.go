@@ -15,16 +15,16 @@ import (
 )
 
 // Handle anything under /doc
-func (ss SessionServer) handleDoc(email string, w http.ResponseWriter, r *http.Request) {
+func (ss SessionServer) handleDoc(accountId string, w http.ResponseWriter, r *http.Request) {
 	switch {
 	case strings.HasPrefix(r.URL.Path, "/doc/edit"):
 		ss.handleDocEdit(w, r)
 	case strings.HasPrefix(r.URL.Path, "/doc/connect"):
-		ss.handleDocConnect(email, w, r)
+		ss.handleDocConnect(accountId, w, r)
 	case strings.HasPrefix(r.URL.Path, "/doc/op"):
-		ss.handleDocOp(email, w, r)
+		ss.handleDocOp(accountId, w, r)
 	case strings.HasPrefix(r.URL.Path, "/doc/presence"):
-		ss.handleDocPresence(email, w, r)
+		ss.handleDocPresence(accountId, w, r)
 	case strings.HasPrefix(r.URL.Path, "/doc/get"):
 		ss.handleDocGet(w, r)
 	}
@@ -33,7 +33,7 @@ func (ss SessionServer) handleDoc(email string, w http.ResponseWriter, r *http.R
 // Start Delta event stream connection to server.
 // Request: {}
 // Response: SSE Events
-func (ss SessionServer) handleDocConnect(email string, w http.ResponseWriter, r *http.Request) {
+func (ss SessionServer) handleDocConnect(accountId string, w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		ss.writeError(w, "Streaming unsupported.")
@@ -50,14 +50,14 @@ func (ss SessionServer) handleDocConnect(email string, w http.ResponseWriter, r 
 		return
 	}
 
-	doc, exists := ss.docs.FindById(docID)
-	if !exists {
+	doc, err := ss.docs.FindById(docID)
+	if err != nil {
 		ss.writeError(w, fmt.Sprintf("Document ID %s does not exist", docID))
 		return
 	}
 
-	acc, exists := ss.accDb.FindById(email)
-	if !exists {
+	acc, err := ss.accDb.FindById(accountId)
+	if err != nil {
 		ss.writeError(w, "Internal error: could not get account.")
 		return
 	}
@@ -129,7 +129,7 @@ func (ss SessionServer) handleDocEdit(w http.ResponseWriter, r *http.Request) {
 // URL: /doc/op/:docId/:clientId
 // Request: { version, op }
 // Response: { status }
-func (ss SessionServer) handleDocOp(email string, w http.ResponseWriter, r *http.Request) {
+func (ss SessionServer) handleDocOp(accountId string, w http.ResponseWriter, r *http.Request) {
 	// Parse the request URL.
 	docID, clientID, _, err := parseRequestIDs(r)
 	if err != nil {
@@ -138,12 +138,12 @@ func (ss SessionServer) handleDocOp(email string, w http.ResponseWriter, r *http
 	}
 
 	// Find the document/client the Op concerns.
-	doc, exists := ss.docs.FindById(docID)
-	if !exists {
+	doc, err := ss.docs.FindById(docID)
+	if err != nil {
 		ss.writeError(w, "Document does not exist.")
 		return
 	}
-	client, exists := doc.Clients[clientID]
+	_, exists := doc.Clients[clientID]
 	if !exists {
 		ss.writeError(w, "Client does not exist.")
 		return
@@ -193,14 +193,14 @@ func (ss SessionServer) handleDocOp(email string, w http.ResponseWriter, r *http
 	// ss.writeOk(w, "Submitted op.")
 }
 
-func (ss SessionServer) handleDocPresence(email string, w http.ResponseWriter, r *http.Request) {
+func (ss SessionServer) handleDocPresence(accountId string, w http.ResponseWriter, r *http.Request) {
 	// Parse the request URL.
 	docID, clientID, _, err := parseRequestIDs(r)
 	if err != nil {
 		final.LogFatal(err, "parseRequestIDs failed")
 	}
-	doc, exists := ss.docs.FindById(docID)
-	if !exists {
+	doc, err := ss.docs.FindById(docID)
+	if err != nil {
 		ss.writeError(w, "Document does not exist.")
 		return
 	}
@@ -215,11 +215,11 @@ func (ss SessionServer) handleDocPresence(email string, w http.ResponseWriter, r
 
 	// Kelvin made the mistake of making Email the Account's ID, so now he and we have to live with it.
 	// Really though, it comes from the Model interface using Id() meaning the field can't be called Id.
-	acct, exists := ss.accDb.FindById(email)
-	if !exists {
+	acct, err := ss.accDb.FindById(accountId)
+	if err != nil {
 		final.LogFatal(nil, fmt.Sprintf("Account with ID %s not in ss.accts", acct.Id()))
 	}
-	cursor.Name = acct.Username
+	cursor.Name = acct.Name
 
 	presence := util.Presence{
 		ID:     clientID,

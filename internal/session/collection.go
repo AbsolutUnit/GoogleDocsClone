@@ -10,7 +10,7 @@ import (
 )
 
 // Handle anything under /collection
-func (ss SessionServer) handleCollection(email string, w http.ResponseWriter, r *http.Request) {
+func (ss SessionServer) handleCollection(accountId string, w http.ResponseWriter, r *http.Request) {
 	switch {
 	case strings.HasPrefix(r.URL.Path, "/collection/create"):
 		ss.handleCollectionCreate(w, r)
@@ -70,20 +70,12 @@ func (ss SessionServer) handleCollectionDelete(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Check if it exists.
-	_, exists := ss.docs.FindById(body.DocId)
-	if !exists {
-		ss.writeError(w, fmt.Sprintf("Document ID %s does not exist", body.DocId))
-		return
-	}
-
 	// No need to handle error response.
-	if _, err := ss.docs.DeleteById(body.DocId); err != nil {
+	if count, err := ss.docs.DeleteById(body.DocId); err != nil || count == 0 {
 		ss.writeError(w, fmt.Sprintf("Document ID %s could not be deleted.", body.DocId))
-		return
+	} else if (count > 0) {
+		ss.writeOk(w, "Deleted document.")
 	}
-
-	ss.writeOk(w, "")
 }
 
 // Return a list of the most-recently modified 10 documents sorted in reverse chronological order.

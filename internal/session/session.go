@@ -54,6 +54,12 @@ func (sd SessionDocument) Id() string {
 	return sd.id
 }
 
+func (sd SessionDocument) SetId(id string) error {
+	sd.id = id
+	return nil
+}
+
+// TODO take the ID out of this and use mongo's id?
 func NewSessionDocument(id string, name string) SessionDocument {
 	return SessionDocument{
 		id:           id,
@@ -66,13 +72,18 @@ func NewSessionDocument(id string, name string) SessionDocument {
 	}
 }
 
-type AccountClient struct {
+type AccountCache struct {
 	AccountId string
 	Clients   []*Client
 }
 
-func (ac AccountClient) Id() string {
+func (ac AccountCache) Id() string {
 	return ac.AccountId
+}
+
+func (ac AccountCache) SetId(id string) error {
+	ac.AccountId = id
+	return nil
 }
 
 type SessionServer struct {
@@ -80,7 +91,8 @@ type SessionServer struct {
 	idFactory    *snowflake.Node
 	docs         store.Repository[SessionDocument, string]
 	accDb        store.Repository[Account, string]
-	accCache     store.Repository[AccountClient, string]
+	accCache     store.Repository[AccountCache, string]
+	verifyKeys   map[string]string // verify key to account email
 	amqp         rbmq.Broker
 	stoppingChan chan bool
 }
@@ -92,7 +104,8 @@ func NewSessionServer(config SessionConfig) (ss SessionServer) {
 	// TODO: discuss memory store vs mongodb. Why not do it all in memory?
 	ss.docs = store.NewInMemoryStore[SessionDocument, string]()
 	ss.accDb = store.NewMongoDbStore[Account, string](ss.config.Db.Uri, ss.config.Db.DbName, "accounts", time.Minute)
-	ss.accCache = store.NewInMemoryStore[AccountClient, string]()
+	ss.accCache = store.NewInMemoryStore[AccountCache, string]()
+	ss.verifyKeys = make(map[string]string)
 	ss.amqp = rbmq.NewRabbitMq(ss.config.AmqpUrl)
 	ss.stoppingChan = make(chan bool)
 	return
@@ -161,7 +174,7 @@ func (ss SessionServer) addSSEHeaders(w http.ResponseWriter) {
 
 func (ss SessionServer) writeOk(w http.ResponseWriter, ok string) {
 	type respOk struct {
-		Ok string `json:"error"`
+		Ok string `json:"ok"`
 	}
 	// TODO maybe add logging?
 	json.NewEncoder(w).Encode(respOk{Ok: ok})
@@ -204,6 +217,9 @@ func parseRequestIDs(r *http.Request) (docID string, clientID string, mediaID st
 
 func (ss SessionServer) LogRequestIn(w http.ResponseWriter, r *http.Request) {
 	str := fmt.Sprintf("[%s][in] %s\n", r.Method, r.URL.Path)
+	for k, v := range r.URL.Query() {
+		str += fmt.Sprintf("[qry] %s: %s\n", k, strings.Join(v, ","))
+	}
 
 	buf, bodyErr := ioutil.ReadAll(r.Body)
 	if bodyErr != nil {
@@ -213,7 +229,7 @@ func (ss SessionServer) LogRequestIn(w http.ResponseWriter, r *http.Request) {
 	rdr1 := ioutil.NopCloser(bytes.NewBuffer(buf))
 	rdr2 := ioutil.NopCloser(bytes.NewBuffer(buf))
 
-	str += fmt.Sprintf("[body] %q", rdr1)
+	str += fmt.Sprintf("[bdy] %q", rdr1)
 	r.Body = rdr2
 	final.LogDebug(nil, str)
 }
@@ -226,7 +242,6 @@ func (ss SessionServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if strings.HasPrefix(r.URL.Path, "/users") {
 		ss.handleUsers(w, r)
-	} else if strings.HasPrefix(r.URL.Path, "/home") {
 	} else {
 		// Check for authentication.
 		cookie, err := r.Cookie("token")
@@ -234,8 +249,8 @@ func (ss SessionServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			ss.writeError(w, "Unauthorized")
 			return
 		}
-		// Get email from JWT.
-		email, err := EmailFrom(cookie.Value, ss.config.ClaimKey)
+		// Get accountId from JWT.
+		accountId, err := IdFrom(cookie.Value, ss.config.ClaimKey)
 		if err != nil {
 			ss.writeError(w, "Unauthorized")
 			return
@@ -243,16 +258,18 @@ func (ss SessionServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		// Switch for the endpoints.
 		switch {
+		case strings.HasPrefix(r.URL.Path, "/home"):
+			ss.handleHome(accountId, w, r)
 		case strings.HasPrefix(r.URL.Path, "/collection/"):
-			ss.handleCollection(email, w, r)
+			ss.handleCollection(accountId, w, r)
 		case strings.HasPrefix(r.URL.Path, "/doc/"):
-			ss.handleDoc(email, w, r)
+			ss.handleDoc(accountId, w, r)
 		case strings.HasPrefix(r.URL.Path, "/media/"):
-			ss.handleMedia(email, w, r)
+			ss.handleMedia(accountId, w, r)
 		}
 	}
 }
 
-func (ss SessionServer) handleHome(w http.ResponseWriter, r *http.Request) {
+func (ss SessionServer) handleHome(accountId string, w http.ResponseWriter, r *http.Request) {
 	// TODO: actually not sure what to do here.
 }

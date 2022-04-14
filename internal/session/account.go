@@ -2,29 +2,52 @@ package session
 
 import (
 	"errors"
+	"final"
 	"fmt"
 	"net/mail"
 	"net/smtp"
 	"time"
 
 	jwt "github.com/golang-jwt/jwt/v4"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type Account struct {
+	Id_      primitive.ObjectID `json:"id" bson:"_id"`
 	Email    string
-	Username string
+	Name     string
 	Password string
 	Verified bool
 }
 
+func (a Account) Id() string {
+	return a.Id_.Hex()
+}
+
+func (a Account) SetId(id string) error {
+	id_, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+
+	}
+	a.Id_ = id_
+	return nil
+}
+
+func NewAccount() Account {
+	return Account{
+		Id_: primitive.NewObjectID(),
+	}
+}
+
 type AccountClaims struct {
-	Email string `json:"email"`
+	Id string `json:"id"`
 	jwt.RegisteredClaims
 }
 
 // Retrieves an account ID from a cookie.
-func EmailFrom(tokenString string, key string) (string, error) {
+func IdFrom(tokenString string, key string) (string, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &AccountClaims{}, func(token *jwt.Token) (any, error) {
 		return []byte(key), nil
 	})
@@ -35,21 +58,17 @@ func EmailFrom(tokenString string, key string) (string, error) {
 		return "", errors.New(fmt.Sprintf("Unexpected signing method: %v", token.Header["alg"]))
 	}
 	if claims, ok := token.Claims.(*AccountClaims); ok && token.Valid {
-		return claims.Email, nil
+		return claims.Id, nil
 	}
 	return "", err
 }
 
-func (a Account) Id() string {
-	// Email as Id for now.
-	return a.Email
-}
-
-func (a Account) HashPassword() error {
+func (a *Account) HashPassword() error {
 	hashed, err := bcrypt.GenerateFromPassword([]byte(a.Password), 10)
 	if err != nil {
-		a.Password = string(hashed)
+		final.LogError(err, "could not hash password")
 	}
+	a.Password = string(hashed)
 	return err
 }
 
@@ -67,69 +86,33 @@ func (a Account) CreateJwt(key string) (tokenString string, err error) {
 			NotBefore: jwt.NewNumericDate(time.Now().Add(-time.Minute * 10)),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 30)),
 		},
-		Email: a.Email,
+		Id: a.Id(),
 	})
 	tokenString, err = token.SignedString([]byte(key))
 	return
 }
 
-func (a Account) SendVerificationEmail(key string, host string) error {
-	verifyString, err := a.CreateJwt(key)
-	if err != nil {
-		return errors.New("Internal error: could not generate session token: " + err.Error())
-	}
+// Send the verification email.
+// This is a bit messy, but it'll do for this project.
+func (a Account) SendVerificationEmail(key, name, identity, user, pass, host string) error {
 	// TODO for milestone 4, refactor this out possibly.
-	toAddrs := []string{}
-	toAddrs = append(toAddrs, (&mail.Address{a.Username, a.Email}).String())
-	toAddrs = append(toAddrs, (&mail.Address{"Test", "yackback00@gmail.com"}).String())
-	for _, to := range toAddrs {
-		header := make(map[string]string)
-		header["To"] = to
-		header["From"] = (&mail.Address{Name: "Backyardigans", Address: "backyardigans@" + host}).String()
-		header["Subject"] = "Account Verification"
-		header["Content-Type"] = `text/html; charset="UTF-8"`
-		msg := ""
+	auth := smtp.PlainAuth(identity, user, pass, host)
+	header := make(map[string]string)
+	header["To"] = (&mail.Address{Name: a.Name, Address: a.Email}).String()
+	header["From"] = (&mail.Address{Name: name, Address: name + "@" + host}).String()
+	header["Subject"] = "Account Verification"
+	header["Content-Type"] = `text/html; charset="UTF-8"`
+	msg := ""
 
-		for k, v := range header {
-			msg += fmt.Sprintf("%s: %s\r\n", k, v)
-		}
-
-		msg += "\r\n" + fmt.Sprintf("https://backyardigans.cse356.compas.cs.stonybrook.edu/users/verify?key=%s", verifyString)
-		bMsg := []byte(msg)
-
-		c, err := smtp.Dial(host + ":587")
-		if err != nil {
-			return err
-		}
-		defer c.Close()
-
-		if err = c.Mail(header["From"]); err != nil {
-			return err
-		}
-
-		if err = c.Rcpt(header["To"]); err != nil {
-			return err
-		}
-
-		w, err := c.Data()
-		if err != nil {
-			return err
-		}
-		_, err = w.Write(bMsg)
-		if err != nil {
-			return err
-		}
-
-		err = w.Close()
-		if err != nil {
-			return err
-		}
-
-		err = c.Quit()
-		if err != nil {
-			return err
-		}
+	for k, v := range header {
+		msg += fmt.Sprintf("%s: %s\r\n", k, v)
 	}
 
+	msg += "\r\n" + fmt.Sprintf("http://%s/users/verify?key=%s", host, key)
+	bMsg := []byte(msg)
+
+	if err := smtp.SendMail(host+":587", auth, header["From"], []string{header["To"]}, bMsg); err != nil {
+		return err
+	}
 	return nil
 }

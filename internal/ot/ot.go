@@ -32,6 +32,11 @@ func (d Document) Id() string {
 	return d.ID
 }
 
+func (d Document) SetId(id string) error {
+	d.ID = id
+	return nil
+}
+
 func NewOTServer(config OTConfig) OTServer {
 	ots := OTServer{}
 	ots.config = config
@@ -72,8 +77,11 @@ func (ots OTServer) Start() {
 func (ots OTServer) handleNewDoc(msg util.Message) {
 	document := Document{}
 	document.file = ot.NewFile(delta.Delta{[]delta.Op{delta.Op{Insert: []rune("\n")}}}) //new document is just "\n"
-	document.ID = msg.DocumentID
-	err := ots.docCache.Store(document)
+	err := document.SetId(msg.DocumentID)
+	if err != nil {
+		final.LogFatal(err, fmt.Sprintf("Could not set document ID %s.", msg.DocumentID))
+	}
+	err = ots.docCache.Store(document)
 	if err != nil {
 		final.LogFatal(err, "Could not store new document in cache")
 	}
@@ -87,8 +95,8 @@ func (ots OTServer) handleNewDoc(msg util.Message) {
 // publishes transformed delta to amqp 'session' key
 func (ots OTServer) handleNewChange(msg util.Message) {
 	// incoming msg either a delta or a presence update
-	doc, exists := ots.docCache.FindById(msg.DocumentID)
-	if !exists {
+	doc, err := ots.docCache.FindById(msg.DocumentID)
+	if err != nil {
 		final.LogFatal(nil, fmt.Sprintf("Document with ID %s not found in cache", msg.DocumentID))
 	}
 	if (msg.Change != ot.Change{}) { // we have a delta to transform and send back (+ update presences)
@@ -141,8 +149,8 @@ func (ots OTServer) handleNewChange(msg util.Message) {
 
 // publishes contents delta to amqp 'newClient' key
 func (ots OTServer) handleGetDoc(msg util.Message) {
-	doc, exists := ots.docCache.FindById(msg.DocumentID)
-	if !exists {
+	doc, err := ots.docCache.FindById(msg.DocumentID)
+	if err != nil {
 		final.LogFatal(nil, fmt.Sprintf("Document with ID %s not found in cache", msg.DocumentID))
 	}
 	msgBytes, err := util.Serialize(util.Message{
@@ -174,8 +182,8 @@ func (ots OTServer) handleGetHTML(msg util.Message) {
 func (ots OTServer) DocToHTML(documentID string) (html string) {
 	//bold, italics, normal, line break
 	// TODO handle exists
-	doc, exists := ots.docCache.FindById(documentID)
-	if !exists {
+	doc, err := ots.docCache.FindById(documentID)
+	if err != nil {
 		final.LogFatal(nil, fmt.Sprintf("Document with ID %s not found in cache", documentID))
 	}
 	operations := doc.file.CurrentChange().Delta.Ops
