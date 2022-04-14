@@ -2,8 +2,10 @@ package session
 
 import (
 	"encoding/json"
+	"final"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 
 	"final/internal/util"
@@ -73,7 +75,7 @@ func (ss SessionServer) handleCollectionDelete(w http.ResponseWriter, r *http.Re
 	// No need to handle error response.
 	if count, err := ss.docs.DeleteById(body.DocId); err != nil || count == 0 {
 		ss.writeError(w, fmt.Sprintf("Document ID %s could not be deleted.", body.DocId))
-	} else if (count > 0) {
+	} else if count > 0 {
 		ss.writeOk(w, "Deleted document.")
 	}
 }
@@ -82,8 +84,23 @@ func (ss SessionServer) handleCollectionDelete(w http.ResponseWriter, r *http.Re
 // Expected request form: {}
 // Expected response form: [{id, name}, ...]
 func (ss SessionServer) handleCollectionList(w http.ResponseWriter, r *http.Request) {
-	// TODO
-	// Check the store for the most recently modified documents.
-	// Return data.
-	fmt.Fprint(w, "[]")
+	allDocs := ss.docs.FindAll()
+	sort.Slice(allDocs, func(i, j int) bool {
+		return allDocs[i].LastModified.After(allDocs[j].LastModified)
+	})
+	top10Docs := allDocs[:10]
+	type respItems struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	top10Resp := make([]respItems, len(top10Docs))
+	for i, k := range top10Docs {
+		top10Resp[i] = respItems{ID: k.Id(), Name: k.Name}
+	}
+	top10RespBytes, err := util.Serialize(top10Resp)
+	if err != nil {
+		final.LogFatal(err, "failed to serialize top 10 response")
+	}
+	final.LogDebug(nil, fmt.Sprintf("top10RespBytes: %v", top10RespBytes))
+	fmt.Fprint(w, top10RespBytes)
 }
