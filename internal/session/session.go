@@ -174,26 +174,29 @@ func (ss SessionServer) addSSEHeaders(w http.ResponseWriter) {
 
 func (ss SessionServer) writeOk(w http.ResponseWriter, ok string) {
 	type respOk struct {
-		Ok string `json:"ok"`
+		Ok bool `json:"ok"`
+		Message string `json:"message"`
 	}
 	// TODO maybe add logging?
-	json.NewEncoder(w).Encode(respOk{Ok: ok})
+	json.NewEncoder(w).Encode(respOk{Ok: true, Message: ok})
 }
 
 func (ss SessionServer) writeRetry(w http.ResponseWriter, ret string) {
 	type respRetry struct {
-		Retry string `json:"retry"`
+		Retry bool `json:"retry"`
+		Message string `json:"message"`
 	}
 	// TODO maybe add logging?
-	json.NewEncoder(w).Encode(respRetry{Retry: ret})
+	json.NewEncoder(w).Encode(respRetry{Retry: true, Message: ret})
 }
 
 func (ss SessionServer) writeError(w http.ResponseWriter, err string) {
 	type respError struct {
-		Error string `json:"error"`
+		Error   bool `json:"error"`
+		Message string `json:"message"`
 	}
 	// TODO maybe add logging?
-	json.NewEncoder(w).Encode(respError{Error: err})
+	json.NewEncoder(w).Encode(respError{Error: true, Message: err})
 }
 
 func parseRequestIDs(r *http.Request) (docID string, clientID string, mediaID string, err error) {
