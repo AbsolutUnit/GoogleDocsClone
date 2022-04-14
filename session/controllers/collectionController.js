@@ -1,65 +1,80 @@
-const DocModel = require('../Models/Document');
+const WebSocket = require('ws');
+const ReconnectingWebSocket = require('reconnecting-websocket');
+const wsOptions = { WebSocket: WebSocket };
+const Client = require('sharedb/lib/client');
+const richText = require('rich-text');
+
+const Connection = Client.Connection;
+Client.types.register(richText.type);
+
+const DocMapModel = require('../Models/Document');
 
 const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions);
 const connection = new Connection(socket);
 
-exports.handleCreate = async (req, res, next) => {
+exports.handleCreate = (req, res, next) => {
   const { name } = req.body;
-  const DocID = parseInt(Math.random() * 1000000000).toString();
+  const docID = parseInt(Math.random() * 1000000000).toString();
   let doc = connection.get('docs', docID);
-  doc.fetch(function (err) {
+  doc.fetch(async function (err) {
     if (err) throw err;
+    // if id is already taken...
+    while (doc.type !== null) {
+      docID = parseInt(Math.random() * 1000000000).toString();
+      doc = connection.get('docs', docID);
+    }
+    if (doc.type === null) {
+      doc.create([{ insert: '\n' }], 'rich-text');
+      console.log('doc created!');
+      let documentMap = new DocMapModel({
+        docName: name,
+        docID,
+      });
+      await documentMap.save(function (err) {
+        if (err) console.log("couldn't save the document map");
+      });
+      console.log('document mapping saved!');
+    }
   });
-  // if id is already taken...
-  while (doc.type !== null) {
-    DocID = parseInt(Math.random() * 1000000000).toString();
-    doc = connection.get('docs', docID);
-  }
-  if (doc.type === null) {
-    doc.create([{ insert: '\n' }], 'rich-text');
-    console.log('doc created!');
-    let documentMap = new DocModel({
-      name,
-      docID,
-    });
-    await documentMap.save();
-    console.log('doc name mapping saved!');
-  }
-  res.write(docID); //TEST IF WORKS???
+
+  res.json({ docid: docID });
+  res.end();
 };
 exports.handleDelete = async (req, res, next) => {
-  const { docID } = req.body;
+  const { docid: docID } = req.body;
   const doc = connection.get('docs', docID);
-  doc.fetch(function (err) {
+  doc.fetch(async function (err) {
     if (err) throw err;
-  });
-  if (doc.type === null) {
-    console.log('doc to delete does not exist!');
-  } else if (doc.type !== null) {
-    doc.destroy(); // this or doc.del()
-    console.log(`doc id: ${docID} deleted!`);
-    let documentMap = await DocModel.findOne({ docID });
-    if (documentMap) {
-      documentMap.destroy(); //TODO : find right function
-      console.log('document mapping destroyed!');
-    } else {
-      console.log(`document mapping doesn't exist`);
+    //console.log(doc);
+    if (doc.type === null) {
+      console.log('doc to delete does not exist!');
+    } else if (doc.type !== null) {
+      doc.del(); // this or doc.del()
+      console.log(`doc id: ${docID} deleted!`);
+      DocMapModel.deleteOne({ docID }, function (err) {
+        if (err) {
+          return console.log(err);
+        } else {
+          console.log('document mapping deleted!');
+        }
+      });
     }
-  }
+  });
+  res.end();
 };
 exports.handleList = (req, res, next) => {
-  //async spaghetti code deal with it
   const query = connection.createFetchQuery('docs', {
     $sort: { '_m.mtime': -1 },
     $limit: 10,
   });
-  query.on('ready', function () {
+  let resList = [];
+  query.on('ready', async function () {
     docList = query.results;
-    let resList = [];
-    docList.foreach(async (item, index) => {
-      let name = await DocMode.findOne(doc.id);
-      resList.push({ item: item.id, name: name });
-    });
+    for (const doc of docList) {
+      let name = await DocMapModel.findOne({ docID: doc.id });
+      resList.push({ item: doc.id, name: name.docName });
+    }
+    res.json(resList);
+    res.end();
   });
-  res.write(resList);
 };

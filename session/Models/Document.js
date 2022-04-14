@@ -6,10 +6,10 @@ const docSchema = new Schema({
     type: String,
     required: true,
   },
-  docId: {
+  docID: {
     type: String,
     required: true,
   },
 });
 
-module.exports = mongoose.model('Doc', docSchema);
+module.exports = mongoose.model('Documentname', docSchema);

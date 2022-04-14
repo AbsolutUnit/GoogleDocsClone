@@ -66,7 +66,7 @@ exports.handleLogin = async (req, res, next) => {
   } else {
     console.log('Successful login');
     req.session.isAuth = true;
-    res.write(user.name);
+    res.json({ name: user.name });
   }
   res.end();
   return;

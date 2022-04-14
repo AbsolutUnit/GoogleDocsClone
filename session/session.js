@@ -36,7 +36,7 @@ const store = new MongoDBSession({
 });
 const nameStore = new MongoDBSession({
   uri: mongoURI,
-  collection: 'documentNames',
+  collection: 'documentnames',
 });
 
 // server setup & middleware
