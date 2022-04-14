@@ -160,8 +160,15 @@ func (ss SessionServer) handleDocOp(accountId string, w http.ResponseWriter, r *
 		ss.writeError(w, "Invalid format for submitting a new op.")
 		return
 	}
-	// If the version is lower than the current version, then we will send back {"retry"} json
+	// If the version is lower than the current version, then we will send back {status: "retry"} json
 	// and then return. This is because the grading script doesn't realize we support up to 10 reverts.
+	if body.Version < doc.Version { //
+		ss.writeStatus(w, "retry")
+		return
+	}
+	if body.Version > doc.Version { // purely for debugging
+		final.LogFatal(nil, "incoming version greater than doc version")
+	}
 
 	// Convert the body into a change.
 	change := ot.Change{
@@ -187,10 +194,8 @@ func (ss SessionServer) handleDocOp(accountId string, w http.ResponseWriter, r *
 	}
 	defer ch.Close()
 	doc.LastModified = time.Now()
-
-	doc.VersionHack += 1
 	doc.Acks <- &body.Op
-	// ss.writeOk(w, "Submitted op.")
+	ss.writeStatus(w, "ok")
 }
 
 func (ss SessionServer) handleDocPresence(accountId string, w http.ResponseWriter, r *http.Request) {

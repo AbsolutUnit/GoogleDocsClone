@@ -47,7 +47,7 @@ type SessionDocument struct {
 	Presences    map[string]util.Presence // key is a clientId
 	LastModified time.Time
 	Acks         chan *[]delta.Op
-	VersionHack  uint64
+	Version      uint32
 }
 
 func (sd SessionDocument) Id() string {
@@ -55,7 +55,7 @@ func (sd SessionDocument) Id() string {
 }
 
 func (sd SessionDocument) SetId(id string) error {
-	sd.id = id
+	sd.id = id // TODO: wtf is going on here?
 	return nil
 }
 
@@ -68,7 +68,7 @@ func NewSessionDocument(id string, name string) SessionDocument {
 		Presences:    make(map[string]util.Presence),
 		LastModified: time.Now(),
 		Acks:         make(chan *[]delta.Op),
-		// VersionHack?
+		Version:      0, // TODO: make sure initial version is 0
 	}
 }
 
@@ -82,7 +82,7 @@ func (ac AccountCache) Id() string {
 }
 
 func (ac AccountCache) SetId(id string) error {
-	ac.AccountId = id
+	ac.AccountId = id // TODO: wtf is going on here?
 	return nil
 }
 
@@ -140,15 +140,15 @@ func (ss SessionServer) consumeOTResponse(msg amqp.Delivery) {
 	if err != nil {
 		final.LogError(err, "Could not deserialize OT response.")
 	}
+	doc, _ := ss.docs.FindById(fmt.Sprint(otMsg.DocumentID))
 	// Then, we want to convert this to our EventData.
 	eventMsg := EventData{}
 	if (otMsg.Change != ot.Change{}) {
 		eventMsg.Op = otMsg.Change.Delta.Ops
-		// for some reason we dont want to send back version with the op
+		doc.Version = otMsg.Change.Version
 	} else {
 		eventMsg.Presence = otMsg.Presence
 	}
-	doc, _ := ss.docs.FindById(fmt.Sprint(otMsg.DocumentID))
 	for _, c := range doc.Clients {
 		if c.Id() != otMsg.ClientID {
 			c.Events <- &eventMsg
@@ -189,14 +189,14 @@ func (ss SessionServer) writeOk(w http.ResponseWriter, ok string) {
 	json.NewEncoder(w).Encode(respOk{Ok: true, Message: ok})
 }
 
-func (ss SessionServer) writeRetry(w http.ResponseWriter, ret string) {
-	type respRetry struct {
-		Retry   bool   `json:"retry"`
-		Message string `json:"message"`
-	}
-	// TODO maybe add logging?
-	json.NewEncoder(w).Encode(respRetry{Retry: true, Message: ret})
-}
+// func (ss SessionServer) writeRetry(w http.ResponseWriter, ret string) {
+// 	type respRetry struct {
+// 		Retry   bool   `json:"retry"`
+// 		Message string `json:"message"`
+// 	}
+// 	// TODO maybe add logging?
+// 	json.NewEncoder(w).Encode(respRetry{Retry: true, Message: ret})
+// }
 
 func (ss SessionServer) writeError(w http.ResponseWriter, err string) {
 	type respError struct {
