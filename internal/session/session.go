@@ -156,7 +156,7 @@ func (ss SessionServer) consumeOTResponse(msg amqp.Delivery) {
 			// If these are the same, then we need to send an Ack of the _untransformed_ change.
 			if (otMsg.Change != ot.Change{}) {
 				ackOp := <-doc.Acks
-				c.Events <- &EventData{Ack: *ackOp} // NOTE: this might be wrong since it is not the untransformed op
+				c.Events <- &EventData{Ack: *ackOp}
 			} // don't send anything if presence
 		}
 	}
@@ -172,9 +172,17 @@ func (ss SessionServer) addSSEHeaders(w http.ResponseWriter) {
 	w.Header().Set("Connection", "keep-alive")
 }
 
+// status should be either 'ok' or 'retry'
+func (ss SessionServer) writeStatus(w http.ResponseWriter, status string) {
+	type respStatus struct {
+		Status string `json:"string"`
+	}
+	json.NewEncoder(w).Encode(respStatus{Status: status})
+}
+
 func (ss SessionServer) writeOk(w http.ResponseWriter, ok string) {
 	type respOk struct {
-		Ok bool `json:"ok"`
+		Ok      bool   `json:"ok"`
 		Message string `json:"message"`
 	}
 	// TODO maybe add logging?
@@ -183,7 +191,7 @@ func (ss SessionServer) writeOk(w http.ResponseWriter, ok string) {
 
 func (ss SessionServer) writeRetry(w http.ResponseWriter, ret string) {
 	type respRetry struct {
-		Retry bool `json:"retry"`
+		Retry   bool   `json:"retry"`
 		Message string `json:"message"`
 	}
 	// TODO maybe add logging?
@@ -192,7 +200,7 @@ func (ss SessionServer) writeRetry(w http.ResponseWriter, ret string) {
 
 func (ss SessionServer) writeError(w http.ResponseWriter, err string) {
 	type respError struct {
-		Error   bool `json:"error"`
+		Error   bool   `json:"error"`
 		Message string `json:"message"`
 	}
 	// TODO maybe add logging?
