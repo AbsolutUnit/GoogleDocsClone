@@ -22,11 +22,11 @@ import (
 )
 
 type EventData struct {
-	Content  delta.Delta   `json:"content,omitempty"`
-	Presence util.Presence `json:"presence,omitempty"` // TODO: why is this a pointer?
-	Ack      delta.Delta   `json:"ack,omitempty"`
+	Content  []delta.Op    `json:"content,omitempty"`
+	Presence util.Presence `json:"presence,omitempty"`
+	Ack      []delta.Op    `json:"ack,omitempty"`
 	Version  uint32        `json:"version,omitempty"`
-	Op       delta.Delta   `json:"op,omitempty"`
+	Op       []delta.Op    `json:"op,omitempty"`
 }
 
 type Client struct {
@@ -41,11 +41,13 @@ func (sc Client) Id() string {
 }
 
 type SessionDocument struct {
-	id          string
-	Name        string
-	Clients     map[string]Client        // key is a clientId
-	Presences   map[string]util.Presence // key is a clientId
-	VersionHack uint64
+	id           string
+	Name         string
+	Clients      map[string]Client        // key is a clientId
+	Presences    map[string]util.Presence // key is a clientId
+	LastModified time.Time
+	Acks         chan *[]delta.Op
+	VersionHack  uint64
 }
 
 func (sd SessionDocument) Id() string {
@@ -54,10 +56,13 @@ func (sd SessionDocument) Id() string {
 
 func NewSessionDocument(id string, name string) SessionDocument {
 	return SessionDocument{
-		id:        id,
-		Name:      name,
-		Clients:   make(map[string]Client),
-		Presences: make(map[string]util.Presence),
+		id:           id,
+		Name:         name,
+		Clients:      make(map[string]Client),
+		Presences:    make(map[string]util.Presence),
+		LastModified: time.Now(),
+		Acks:         make(chan *[]delta.Op),
+		// VersionHack?
 	}
 }
 
@@ -125,7 +130,7 @@ func (ss SessionServer) consumeOTResponse(msg amqp.Delivery) {
 	// Then, we want to convert this to our EventData.
 	eventMsg := EventData{}
 	if (otMsg.Change != ot.Change{}) {
-		eventMsg.Op = *otMsg.Change.Delta
+		eventMsg.Op = otMsg.Change.Delta.Ops
 		// for some reason we dont want to send back version with the op
 	} else {
 		eventMsg.Presence = otMsg.Presence
@@ -136,7 +141,8 @@ func (ss SessionServer) consumeOTResponse(msg amqp.Delivery) {
 			c.Events <- &eventMsg
 		} else {
 			if (otMsg.Change != ot.Change{}) {
-				c.Events <- &EventData{Ack: eventMsg.Op} // NOTE: this might be wrong since it is not the untransformed op
+				ackOp := <-doc.Acks
+				c.Events <- &EventData{Ack: *ackOp} // NOTE: this might be wrong since it is not the untransformed op
 			} // don't send anything if presence
 		}
 	}

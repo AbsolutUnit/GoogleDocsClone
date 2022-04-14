@@ -70,7 +70,7 @@ func (ss SessionServer) handleDocConnect(email string, w http.ResponseWriter, r 
 	doc.Clients[clientID] = client
 
 	writeSseData := func(sseMsg *EventData) {
-		sseData, err := util.Serialize[EventData](*sseMsg)
+		sseData, err := util.Serialize(*sseMsg)
 		if err != nil {
 			ss.writeError(w, "Internal error: could not deserialize response.")
 		}
@@ -116,8 +116,8 @@ func (ss SessionServer) retrieveFullDocument(doc SessionDocument, clientID strin
 		final.LogError(err, "Could not deserialize message from OT server.")
 	}
 	return EventData{
-		Content: *sseMsg.Change.Delta,
-		Version: *&sseMsg.Change.Version,
+		Content: sseMsg.Change.Delta.Ops,
+		Version: sseMsg.Change.Version,
 	}
 }
 
@@ -186,9 +186,11 @@ func (ss SessionServer) handleDocOp(email string, w http.ResponseWriter, r *http
 		return
 	}
 	defer ch.Close()
-
+	doc.LastModified = time.Now()
+	ss.docs.Store(doc) // Chris: like 90% sure don't need to do this, but 100% sure it won't cause problems
 	doc.VersionHack += 1
-	ss.writeOk(w, "Submitted op.")
+	doc.Acks <- &body.Op
+	// ss.writeOk(w, "Submitted op.")
 }
 
 func (ss SessionServer) handleDocPresence(email string, w http.ResponseWriter, r *http.Request) {
@@ -202,7 +204,7 @@ func (ss SessionServer) handleDocPresence(email string, w http.ResponseWriter, r
 		ss.writeError(w, "Document does not exist.")
 		return
 	}
-	if _, exists := doc.Clients[clientID]; !exists { // NOTE: assumes no empty string client IDs
+	if _, exists := doc.Clients[clientID]; !exists {
 		ss.writeError(w, "Client does not exist.")
 		return
 	}
