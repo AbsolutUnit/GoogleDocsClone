@@ -1,4 +1,4 @@
-const UserModel = require('../User');
+const UserModel = require('../Models/User');
 
 async function sendMail(recipient, user, key) {
   //URGH POSTFIX SMTP SERVER MILESTONE 3

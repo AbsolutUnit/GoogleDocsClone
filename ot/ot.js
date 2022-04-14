@@ -5,8 +5,13 @@ var richText = require('rich-text');
 var WebSocket = require('ws');
 var WebSocketJSONStream = require('@teamwork/websocket-json-stream');
 
+const mongoURI =
+  'mongodb+srv://kevinchao:fJkTywtN4BmDnL1x@cluster0.28ur3.mongodb.net/sessions?retryWrites=true&w=majority';
+
+const db = require('sharedb-mongo')(mongoURI);
+
 ShareDB.types.register(richText.type);
-var backend = new ShareDB();
+var backend = new ShareDB({ db });
 //createDoc(startServer);
 startServer();
 
