@@ -25,7 +25,7 @@ type SessionConfig struct {
 	Cse356Id     string          `json:"cse356Id"`
 	Db           SessionConfigDb `json:"db"`
 	ExchangeName string          `json:"exchangeName"`
-	HostName     string          `json:"hostname"`
+	Hostname     string          `json:"hostname"`
 	VerifyKey    string          `json:"verifyKey"`
 }
 

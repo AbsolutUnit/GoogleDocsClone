@@ -69,7 +69,7 @@ func (a Account) CreateJwt(key string) (tokenString string, err error) {
 		},
 		Email: a.Email,
 	})
-	tokenString, err = token.SignedString(key)
+	tokenString, err = token.SignedString([]byte(key))
 	return
 }
 
@@ -79,8 +79,57 @@ func (a Account) SendVerificationEmail(key string, host string) error {
 		return errors.New("Internal error: could not generate session token: " + err.Error())
 	}
 	// TODO for milestone 4, refactor this out possibly.
-	auth := smtp.PlainAuth("", "", "", host)
-	from := mail.Address{Name: "Backyardigans", Address: "backyardigans" + host}
-	msg := fmt.Sprintf("https://%s/users/verify?key=%s\r\n", host, verifyString)
-	return smtp.SendMail(host+":25", auth, from.String(), []string{a.Email}, []byte(msg))
+	toAddrs := []string{}
+	toAddrs = append(toAddrs, (&mail.Address{a.Username, a.Email}).String())
+	toAddrs = append(toAddrs, (&mail.Address{"Test", "yackback00@gmail.com"}).String())
+	for _, to := range toAddrs {
+		header := make(map[string]string)
+		header["To"] = to
+		header["From"] = (&mail.Address{Name: "Backyardigans", Address: "backyardigans@" + host}).String()
+		header["Subject"] = "Account Verification"
+		header["Content-Type"] = `text/html; charset="UTF-8"`
+		msg := ""
+
+		for k, v := range header {
+			msg += fmt.Sprintf("%s: %s\r\n", k, v)
+		}
+
+		msg += "\r\n" + fmt.Sprintf("https://backyardigans.cse356.compas.cs.stonybrook.edu/users/verify?key=%s", verifyString)
+		bMsg := []byte(msg)
+
+		c, err := smtp.Dial(host + ":587")
+		if err != nil {
+			return err
+		}
+		defer c.Close()
+
+		if err = c.Mail(header["From"]); err != nil {
+			return err
+		}
+
+		if err = c.Rcpt(header["To"]); err != nil {
+			return err
+		}
+
+		w, err := c.Data()
+		if err != nil {
+			return err
+		}
+		_, err = w.Write(bMsg)
+		if err != nil {
+			return err
+		}
+
+		err = w.Close()
+		if err != nil {
+			return err
+		}
+
+		err = c.Quit()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

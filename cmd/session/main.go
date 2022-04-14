@@ -19,8 +19,8 @@ func main() {
 	// Consume messages from the OT server
 	go server.Listen()
 	// Start the http server part
-	err = http.ListenAndServe(":8080", server)
 	final.LogDebug(nil, "server listening on port 8080")
+	err = http.ListenAndServe(":8080", server)
 	if err != nil {
 		final.LogFatal(err, "Failed to start session server.")
 	}

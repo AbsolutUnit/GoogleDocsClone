@@ -143,7 +143,7 @@ func (ss SessionServer) handleDocOp(email string, w http.ResponseWriter, r *http
 		ss.writeError(w, "Document does not exist.")
 		return
 	}
-	_, exists = doc.Clients[clientID]
+	client, exists := doc.Clients[clientID]
 	if !exists {
 		ss.writeError(w, "Client does not exist.")
 		return
@@ -187,7 +187,7 @@ func (ss SessionServer) handleDocOp(email string, w http.ResponseWriter, r *http
 	}
 	defer ch.Close()
 	doc.LastModified = time.Now()
-	ss.docs.Store(doc) // Chris: like 90% sure don't need to do this, but 100% sure it won't cause problems
+
 	doc.VersionHack += 1
 	doc.Acks <- &body.Op
 	// ss.writeOk(w, "Submitted op.")
@@ -241,6 +241,8 @@ func (ss SessionServer) handleDocPresence(email string, w http.ResponseWriter, r
 		final.LogError(err, "Could not publish presence to amqp.")
 	}
 	defer ch.Close()
+
+	ss.writeOk(w, "")
 }
 
 func (ss SessionServer) handleDocGet(w http.ResponseWriter, r *http.Request) {

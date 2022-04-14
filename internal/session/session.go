@@ -140,6 +140,7 @@ func (ss SessionServer) consumeOTResponse(msg amqp.Delivery) {
 		if c.Id() != otMsg.ClientID {
 			c.Events <- &eventMsg
 		} else {
+			// If these are the same, then we need to send an Ack of the _untransformed_ change.
 			if (otMsg.Change != ot.Change{}) {
 				ackOp := <-doc.Acks
 				c.Events <- &EventData{Ack: *ackOp} // NOTE: this might be wrong since it is not the untransformed op

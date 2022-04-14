@@ -82,6 +82,8 @@ func (ss SessionServer) handleCollectionDelete(w http.ResponseWriter, r *http.Re
 		ss.writeError(w, fmt.Sprintf("Document ID %s could not be deleted.", body.DocId))
 		return
 	}
+
+	ss.writeOk(w, "")
 }
 
 // Return a list of the most-recently modified 10 documents sorted in reverse chronological order.
@@ -91,4 +93,5 @@ func (ss SessionServer) handleCollectionList(w http.ResponseWriter, r *http.Requ
 	// TODO
 	// Check the store for the most recently modified documents.
 	// Return data.
+	fmt.Fprint(w, "[]")
 }

@@ -75,6 +75,8 @@ func (ss SessionServer) handleUsersLogout(w http.ResponseWriter, r *http.Request
 		Value:   "",
 		Expires: time.Now().Add(10 * time.Minute),
 	})
+
+	ss.writeOk(w, "")
 }
 
 func (ss SessionServer) handleUsersSignup(w http.ResponseWriter, r *http.Request) {
@@ -94,10 +96,12 @@ func (ss SessionServer) handleUsersSignup(w http.ResponseWriter, r *http.Request
 		ss.writeError(w, "Internal error: could not store new account.")
 		return
 	}
-	if err := account.SendVerificationEmail(ss.config.VerifyKey, ss.config.HostName); err != nil {
+	if err := account.SendVerificationEmail(ss.config.VerifyKey, ss.config.Hostname); err != nil {
 		ss.writeError(w, err.Error())
 		return
 	}
+
+	ss.writeOk(w, "")
 }
 
 func (ss SessionServer) handleUsersVerify(w http.ResponseWriter, r *http.Request) {

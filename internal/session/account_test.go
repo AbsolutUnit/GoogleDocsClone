@@ -72,3 +72,22 @@ func TestEmailFrom(t *testing.T) {
 		}
 	}
 }
+
+func TestSendVerificationEmail(t *testing.T) {
+	cases := []struct {
+		desc  string
+		email string
+	}{
+		{
+			desc:  "hope",
+			email: "uhssboyyvfzjgorekb@nthrw.com",
+		},
+	}
+	for _, v := range cases {
+		account := Account{Email: v.email, Username: "test"}
+		err := account.SendVerificationEmail("testing", "localhost")
+		if err != nil {
+			t.Fatalf("%s: could not send to email: %s error: %s", v.desc, v.email, err)
+		}
+	}
+}
