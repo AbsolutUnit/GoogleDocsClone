@@ -25,6 +25,9 @@ exports.handleDocEdit = (req, res, next) => {
 };
 
 exports.handleDocConnect = (req, res, next) => {
+  const docID = req.params.DOCID;
+  const clientID = req.params.UID;
+
   const headers = {
     'X-CSE356': '61f9d48d3e92a433bf4fc893',
     'Access-Control-Allow-Origin': '*',
@@ -32,8 +35,8 @@ exports.handleDocConnect = (req, res, next) => {
     Connection: 'keep-alive',
     'Cache-Control': 'no-cache',
   };
-  const docID = req.params.DOCID;
-  const clientID = req.params.UID;
+  res.writeHead(200, headers);
+
   const localPresence = presence.create(
     parseInt(Math.random() * 1000000000).toString()
   );

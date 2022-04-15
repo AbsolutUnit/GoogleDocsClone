@@ -49,12 +49,14 @@ exports.handleDelete = async (req, res, next) => {
     //console.log(doc);
     if (doc.type === null) {
       console.log('doc to delete does not exist!');
+      res.json({ error: true, message: "could not delete document." })
     } else if (doc.type !== null) {
       doc.del(); // this or doc.del()
       console.log(`doc id: ${docID} deleted!`);
       DocMapModel.deleteOne({ docID }, function (err) {
         if (err) {
-          return console.log(err);
+          console.log(err);
+          res.json({ error: true, message: "could not delete document." })
         } else {
           console.log('document mapping deleted!');
         }

@@ -9,7 +9,7 @@ let mimeMapping = new Map();
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, './uploads');
+    cb(null, '/root/finaljs/session/uploads');
   },
   filename: (req, file, cb) => {
     let mediaID = parseInt(Math.random() * 1000000000).toString();
@@ -20,7 +20,7 @@ const storage = multer.diskStorage({
 exports.upload = multer({ storage });
 
 exports.handleUpload = (req, res, next) => {
-  //console.log(req.file);
+  // console.log(req.file);
   pathMapping.set(path.parse(req.file.filename).name, req.file.path);
   mimeMapping.set(path.parse(req.file.filename).name, req.file.mimetype);
   res.json({ mediaid: req.file.filename });
@@ -35,12 +35,12 @@ exports.handleAccess = (req, res, next) => {
   res.header('Content-Type', mimeMapping.get(mediaID));
   res.sendFile(filePath, {}, function (err) {
     if (err) {
-      console.log("couldn't send file");
+      console.log(err, "couldn't send file");
     } else {
       console.log(`${filePath} sent!`);
     }
+    res.end();
   });
-  res.end();
 
   // fs.readFile(filePath, 'utf8', (err, data) => {
   //   if (err) {

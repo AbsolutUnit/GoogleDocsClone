@@ -1,4 +1,5 @@
 // imports
+require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -6,13 +7,11 @@ const WebSocket = require('ws');
 const ReconnectingWebSocket = require('reconnecting-websocket');
 const wsOptions = { WebSocket: WebSocket };
 const Client = require('sharedb/lib/client');
-const QuillDeltaToHtmlConverter =
-  require('quill-delta-to-html').QuillDeltaToHtmlConverter;
 const richText = require('rich-text');
 const session = require('express-session');
 const MongoDBSession = require('connect-mongodb-session')(session);
 const mongoose = require('mongoose'); // export this?
-const nodemailer = require('nodemailer');
+const morgan = require('morgan')
 
 const userController = require('./controllers/userController');
 const collectionController = require('./controllers/collectionController');
@@ -46,6 +45,7 @@ const nameStore = new MongoDBSession({
 // server setup & middleware
 const app = express();
 app.use(cors());
+app.use(morgan('tiny'))
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(express.static('../client')); // serve static files
@@ -68,7 +68,7 @@ const isAuth = (req, res, next) => {
     next();
   } else {
     console.log('not logged in!');
-    res.redirect('/');
+    res.json({error: true, message: "not logged in"});
   }
 };
 
@@ -86,7 +86,7 @@ app.post('/users/logout', userController.handleLogout);
 app.get('/users/verify', userController.handleVerify);
 app.post('/collection/create', isAuth, collectionController.handleCreate);
 app.post('/collection/delete', isAuth, collectionController.handleDelete);
-app.post('/collection/list', isAuth, collectionController.handleList);
+app.get('/collection/list', isAuth, collectionController.handleList);
 app.post(
   '/media/upload/',
   isAuth,
