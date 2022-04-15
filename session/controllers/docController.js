@@ -59,10 +59,13 @@ exports.handleDocConnect = (req, res) => {
   });
   localPresence.subscribe(() => {
     presence.on('receive', (id, val) => {
-      const {index, length} = val // no idea what val's shape is
-      let data = `data: ${JSON.stringify({id: clientID, cursor: {index: index, length: length, name: }})}` // how to get name of user?
-    })
-  })
+      const { index, length } = val; // no idea what val's shape is
+      let data = `data: ${JSON.stringify({
+        id: clientID,
+        cursor: { index: index, length: length, name: 'bob' },
+      })}`; // how to get name of user?
+    });
+  });
 };
 
 exports.handleDocOp = (req, res) => {
