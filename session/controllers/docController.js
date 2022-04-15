@@ -4,6 +4,8 @@ const ReconnectingWebSocket = require('reconnecting-websocket');
 const wsOptions = { WebSocket: WebSocket };
 const Client = require('sharedb/lib/client');
 const richText = require('rich-text');
+const QuillDeltaToHtmlConverter =
+  require('quill-delta-to-html').QuillDeltaToHtmlConverter;
 
 const Connection = Client.Connection;
 Client.types.register(richText.type);
@@ -68,9 +70,20 @@ exports.handleDocPresence = (req, res) => {
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
   const doc = connection.get('docs', docID);
+
+  let localPresence = clientMapping[docID];
+  localPresence.submit(range, function (err) {
+    if (err) throw err;
+  });
 };
 
 exports.handleDocGet = (req, res) => {
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
+  const doc = connection.get('docs', docID);
+  const deltaOps = doc.data.ops;
+  const converter = new QuillDeltaToHtmlConverter(deltaOps, {});
+  const html = converter.convert();
+  res.send(html);
+  res.end();
 };
