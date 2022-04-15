@@ -29,7 +29,7 @@ exports.handleHome = (req, res, next) => {
                     });
 
                     document.getElementById("logout").addEventListener("click", function () {
-                        fetch(${ip + "/users/logout"}, {
+                        fetch("http://localhost:8080/users/logout", {
                             method: "POST"
                         });
                     });
