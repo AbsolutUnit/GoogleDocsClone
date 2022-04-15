@@ -15,6 +15,7 @@ const nodemailer = require('nodemailer');
 
 const userController = require('./controllers/userController');
 const collectionController = require('./controllers/collectionController');
+const mediaController = require('./controllers/mediaController');
 
 const Connection = Client.Connection;
 Client.types.register(richText.type);
@@ -86,6 +87,13 @@ app.get('/users/verify', userController.handleVerify);
 app.post('/collection/create', isAuth, collectionController.handleCreate);
 app.post('/collection/delete', isAuth, collectionController.handleDelete);
 app.post('/collection/list', isAuth, collectionController.handleList);
+app.post(
+  '/media/upload/',
+  isAuth,
+  mediaController.upload.single('file'),
+  mediaController.handleUpload
+);
+app.get('/media/access/:MEDIAID', isAuth, mediaController.handleAccess);
 
 app.listen(8080, () => {
   console.log('Listening on port 8080');

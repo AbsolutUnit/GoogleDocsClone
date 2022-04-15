@@ -72,7 +72,7 @@ exports.handleList = (req, res, next) => {
     docList = query.results;
     for (const doc of docList) {
       let name = await DocMapModel.findOne({ docID: doc.id });
-      resList.push({ item: doc.id, name: name.docName });
+      resList.push({ id: doc.id, name: name.docName });
     }
     res.json(resList);
     res.end();
