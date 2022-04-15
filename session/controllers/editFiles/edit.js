@@ -1,5 +1,5 @@
 Quill.register('modules/cursors', QuillCursors);
-const quill = new Quill('#editor', {
+const quill = new Quill('editor', {
     theme: 'snow',
     modules: {
         cursors: true,
