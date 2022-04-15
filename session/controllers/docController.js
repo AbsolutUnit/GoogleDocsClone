@@ -9,9 +9,24 @@ Client.types.register(richText.type);
 
 const DocMapModel = require('../Models/Document');
 
-const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions);
-const connection = new Connection(socket);
+const connection = require('./../session').connection;
 
+let doc = class {
+  id;
+  semaphore;
+  constructor(id) {
+    this.id = id
+    this.semaphore = 1;
+  }
+  lock() {
+    this.semaphore--;
+  }
+  unlock() {
+    this.semaphore++;
+  }
+}
+
+let docs = {}
 
 exports.handleDocEdit = (req, res) => {
     // TODO
@@ -21,8 +36,17 @@ exports.handleDocConnect = (req, res) => {
     // TODO
 }
 
-exports.handleDocOp = (req, res) => {
+exports.handleDocOp = async (req, res) => {
     // TODO
+  const { docId, clientId } = req.params;
+  const { version, op } = req.body;
+
+  doc = docs[docId]
+  if (doc == null) {
+    return;
+  }
+
+  doc.unlock();
 }
 
 exports.handleDocPresence = (req, res) => {
