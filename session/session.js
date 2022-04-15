@@ -11,10 +11,6 @@ const richText = require('rich-text');
 const session = require('express-session');
 const MongoDBSession = require('connect-mongodb-session')(session);
 const mongoose = require('mongoose'); // export this?
-<<<<<<< HEAD
-const morgan = require('morgan');
-=======
->>>>>>> 482ed499698e84dba75ea0d2fa1a019e57188431
 
 const userController = require('./controllers/userController');
 const collectionController = require('./controllers/collectionController');
