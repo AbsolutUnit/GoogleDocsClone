@@ -11,7 +11,6 @@ const richText = require('rich-text');
 const session = require('express-session');
 const MongoDBSession = require('connect-mongodb-session')(session);
 const mongoose = require('mongoose'); // export this?
-const morgan = require('morgan')
 
 const userController = require('./controllers/userController');
 const collectionController = require('./controllers/collectionController');
@@ -45,8 +44,8 @@ const nameStore = new MongoDBSession({
 // server setup & middleware
 const app = express();
 app.use(cors());
-app.use(morgan('dev'))
 app.use((req, res, next) => {
+  console.log(req.url);
   console.log(req.body);
   next();
 })
