@@ -20,11 +20,11 @@ const connection = new Connection(socket);
 const clientMapping = {}; 
 //also do user name mapping to ???, to attach name to cursor SSE response
 
-exports.handleDocEdit = (req, res) => {
+exports.handleDocEdit = (req, res, next) => {
   // TODO
 };
 
-exports.handleDocConnect = (req, res) => {
+exports.handleDocConnect = (req, res, next) => {
   const headers = {
     'X-CSE356': '61f9d48d3e92a433bf4fc893',
     'Access-Control-Allow-Origin': '*',
@@ -70,7 +70,7 @@ exports.handleDocConnect = (req, res) => {
   });
 };
 
-exports.handleDocOp = (req, res) => {
+exports.handleDocOp = (req, res, next) => {
   // const docID = req.params.DOCID;
   const clientID = req.params.UID;
   const doc = clientMapping[clientID].doc;
@@ -82,7 +82,7 @@ exports.handleDocOp = (req, res) => {
   res.send(`${JSON.stringify({ status: 'ok' })}`);
 };
 
-exports.handleDocPresence = (req, res) => {
+exports.handleDocPresence = (req, res, next) => {
   const { index, length } = req.body();
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
@@ -99,7 +99,7 @@ exports.handleDocPresence = (req, res) => {
   });
 };
 
-exports.handleDocGet = (req, res) => {
+exports.handleDocGet = (req, res, next) => {
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
   const doc = conn.get('docs', docID);

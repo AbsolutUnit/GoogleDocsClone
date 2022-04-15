@@ -25,8 +25,7 @@ exports.handleCreate = (req, res, next) => {
     }
     if (doc.type === null) {
       doc.create([{ insert: '\n' }], 'rich-text');
-      doc.submitSource = true;
-      console.log('doc created!');
+      console.log('doc created!'); 
       let documentMap = new DocMapModel({
         docName: name,
         docID,
@@ -66,8 +65,8 @@ exports.handleDelete = async (req, res, next) => {
 };
 
 exports.handleList = (req, res, next) => {
-  res.json(getTopTen());
-  res.end();
+    res.json(exports.getTopTen());
+    res.end();
 };
 
 exports.getTopTen = () => {
@@ -75,13 +74,13 @@ exports.getTopTen = () => {
     $sort: { '_m.mtime': -1 },
     $limit: 10,
   });
-  let resList = [];
   query.on('ready', async function () {
+    let resList = [];
     docList = query.results;
     for (const doc of docList) {
       let name = await DocMapModel.findOne({ docID: doc.id });
       resList.push({ id: doc.id, name: name.docName });
     }
   });
-  return resList;
-}
+  return query.resList;
+};
