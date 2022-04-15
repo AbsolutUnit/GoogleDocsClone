@@ -6,7 +6,7 @@ async function sendMail(recipient, user, key) {
   //URGH POSTFIX SMTP SERVER MILESTONE 3
   console.log(process.env);
   const host = process.env['SMTP_HOST'];
-  const link = `http://${host}/users/verify/?key=${key}&name=${user}`;
+  const link = encodeURI(`http://${host}/users/verify/?key=${key}&name=${user}`);
   const transporter = nodemailer.createTransport({
     service: 'postfix',
     host: host,
@@ -95,7 +95,7 @@ exports.handleLogout = (req, res, next) => {
 
 //assumes request sends name and key
 exports.handleVerify = async (req, res, next) => {
-  const name = req.query.name;
+  const name = decodeURI(req.query.name);
   const key = req.query.key;
   const user = await UserModel.findOne({ name });
   if (!user) {
@@ -111,4 +111,5 @@ exports.handleVerify = async (req, res, next) => {
   }
   console.log('user verified!');
   res.json({ ok: true, message: 'user verified' });
+  res.end();
 };
