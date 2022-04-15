@@ -166,6 +166,9 @@ exports.handleDocConnect = (req, res, next) => {
   };
   res.writeHead(200, headers);
 
+  const presence = connection.getDocPresence('docs', docID);
+  presence.subscribe();
+
   const localPresence = presence.create(
     parseInt(Math.random() * 1000000000).toString()
   );
