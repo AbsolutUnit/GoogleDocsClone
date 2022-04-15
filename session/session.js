@@ -58,8 +58,9 @@ app.use(
     store: store,
   })
 );
-app.use((req, res) => {
+app.use((req, res, next) => {
   res.setHeader('X-CSE356', '61f9d48d3e92a433bf4fc893');
+  next();
 });
 const isAuth = (req, res, next) => {
   //pass this middleware into any endpoint that requires authentication

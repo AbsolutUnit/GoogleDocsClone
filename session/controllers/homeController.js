@@ -14,13 +14,15 @@ const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions);
 const connection = new Connection(socket);
 
 exports.handleHome = (req, res, next) => {
-  let rankingOfKings = collectionController.getTopTen();
-  const hyperlinks = rankingOfKings.map(
-    (x) =>
-      `<a href = "/doc/edit/${String(x)}">Edit Document with ID ${String(
-        x
-      )}</a>`
-  );
+  const hyperlinksFunc = (rankings) =>
+    rankings.map(
+      (x) =>
+        `<a href = "/doc/edit/${String(x)}">Edit Document with ID ${String(
+          x
+        )}</a>`
+    );
+  console.log(collectionController.getTopTen(hyperlinksFunc));
+
   let homePage = `
         <!DOCTYPE html>
         <html>
