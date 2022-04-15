@@ -3,16 +3,17 @@ const nodemailer = require('nodemailer');
 
 async function sendMail(recipient, user, key) {
   //URGH POSTFIX SMTP SERVER MILESTONE 3
-  const link = `http://localhost:8080/users/verify/?name=${user}&key=${key}`;
+  const link = `http://${host}/users/verify/?name=${user}&key=${key}`;
   const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    service: 'postfix',
+    host: process.env["SMTP_HOST"],
+    port: 25,
     auth: {
-      user: 'kychao@cs.stonybrook.edu',
-      pass: 'Sbcs11203100', // definitely not my real password
+      user: process.env["SMTP_USER"], pass: process.env["SMTP_PASS"]
     },
   });
   const mailOptions = {
-    from: 'doogleGocs.com',
+    from: `${process.env["SMTP_NAME"]}@${process.env["SMTP_HOST"]}`,
     to: recipient,
     subject: 'Doogle Gocs Verification Email',
     text: link,
