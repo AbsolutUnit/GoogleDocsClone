@@ -35,7 +35,7 @@ exports.handleAccess = (req, res, next) => {
   res.header('Content-Type', mimeMapping.get(mediaID));
   res.sendFile(filePath, {}, function (err) {
     if (err) {
-      console.log(err, "couldn't send file");
+      res.json({ error: true, message: "couldn't send file" });
     } else {
       console.log(`${filePath} sent!`);
     }

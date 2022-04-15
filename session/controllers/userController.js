@@ -1,22 +1,23 @@
 const UserModel = require('../Models/User');
 const nodemailer = require('nodemailer');
-const process = require('process')
+const process = require('process');
 
 async function sendMail(recipient, user, key) {
   //URGH POSTFIX SMTP SERVER MILESTONE 3
   console.log(process.env);
-  const host = process.env["SMTP_HOST"];
+  const host = process.env['SMTP_HOST'];
   const link = `http://${host}/users/verify/?name=${user}&key=${key}`;
   const transporter = nodemailer.createTransport({
     service: 'postfix',
     host: host,
     port: 25,
     auth: {
-      user: process.env["SMTP_USER"], pass: process.env["SMTP_PASS"]
+      user: process.env['SMTP_USER'],
+      pass: process.env['SMTP_PASS'],
     },
   });
   const mailOptions = {
-    from: `${process.env["SMTP_NAME"]} <${process.env["SMTP_NAME"]}@${process.env["SMTP_HOST"]}>`,
+    from: `${process.env['SMTP_NAME']} <${process.env['SMTP_NAME']}@${process.env['SMTP_HOST']}>`,
     to: recipient,
     subject: 'Doogle Gocs Verification Email',
     text: link,
@@ -37,7 +38,7 @@ exports.handleAddUser = async (req, res, next) => {
   let user = await UserModel.findOne({ name });
   if (user) {
     console.log('name already taken!');
-    res.json({ error: true, message: 'name already taken' })
+    res.json({ error: true, message: 'name already taken' });
     res.end();
     return;
   }
@@ -65,13 +66,13 @@ exports.handleLogin = async (req, res, next) => {
 
   if (!user) {
     console.log('User does not exist!');
-    res.json({ error: true, message: "user does not exist" });
+    res.json({ error: true, message: 'user does not exist' });
   } else if (password != user.password) {
     console.log('Wrong Password');
-    res.json({ error: true, message: "Wrong password" });
+    res.json({ error: true, message: 'Wrong password' });
   } else if (!user.active) {
     console.log('User is not verified yet');
-    res.json({ error: true, message: "User is not verified." });
+    res.json({ error: true, message: 'User is not verified.' });
   } else {
     console.log('Successful login');
     req.session.isAuth = true;
@@ -84,7 +85,7 @@ exports.handleLogin = async (req, res, next) => {
 exports.handleLogout = (req, res, next) => {
   req.session.destroy((err) => {
     if (err) {
-      res.json({ error: true, message: "user not found" })
+      res.json({ error: true, message: 'user not found' });
     }
     console.log('logged out');
   });
@@ -97,16 +98,16 @@ exports.handleVerify = async (req, res, next) => {
     key = req.query.key;
   const user = await UserModel.findOne({ name });
   if (!user) {
-    res.json({ error: true, message: "user not found" })
+    res.json({ error: true, message: 'user not found' });
     return;
   }
   if (key == user.key) {
     user.active = true;
     await user.save();
   } else {
-    res.json({ error: true, message: "user not found" });
-    return
+    res.json({ error: true, message: 'user not found' });
+    return;
   }
   console.log('user verified!');
-  res.json({ ok: true, message: "user not found" })
+  res.json({ ok: true, message: 'user not found' });
 };

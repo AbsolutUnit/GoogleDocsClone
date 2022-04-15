@@ -31,7 +31,11 @@ exports.handleCreate = (req, res, next) => {
         docID,
       });
       await documentMap.save(function (err) {
-        if (err) console.log("couldn't save the document map");
+        if (err) {
+          res.json({ error: true, message: "couldn't save the document map" });
+          res.end();
+          return;
+        }
       });
       console.log('document mapping saved!');
     }
@@ -49,20 +53,25 @@ exports.handleDelete = async (req, res, next) => {
     //console.log(doc);
     if (doc.type === null) {
       console.log('doc to delete does not exist!');
-      res.json({ error: true, message: "could not delete document." })
+      res.json({ error: true, message: 'could not delete document.' });
+      res.end();
+      return;
     } else if (doc.type !== null) {
       doc.del(); // this or doc.del()
       console.log(`doc id: ${docID} deleted!`);
       DocMapModel.deleteOne({ docID }, function (err) {
         if (err) {
           console.log(err);
-          res.json({ error: true, message: "could not delete document." })
+          res.json({ error: true, message: 'could not delete document.' });
+          res.end();
+          return;
         } else {
           console.log('document mapping deleted!');
         }
       });
     }
   });
+  res.json({});
   res.end();
 };
 
