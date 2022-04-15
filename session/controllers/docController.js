@@ -17,7 +17,7 @@ const DocMapModel = require('../Models/Document');
 const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions);
 const connection = new Connection(socket);
 
-const clientMapping = {};
+const clientMapping = {}; 
 //also do user name mapping to ???, to attach name to cursor SSE response
 
 exports.handleDocEdit = (req, res) => {
@@ -48,6 +48,7 @@ exports.handleDocConnect = (req, res) => {
       content: doc.data.ops,
       version: doc.version,
     })}\n\n`;
+    res.write(data)
     doc.on('op', (op, source) => {
       let data = `data: ${JSON.stringify(op)}\n\n`;
       if (source) {
@@ -62,14 +63,15 @@ exports.handleDocConnect = (req, res) => {
       const { index, length } = val; // no idea what val's shape is
       let data = `data: ${JSON.stringify({
         id: clientID,
-        cursor: { index: index, length: length, name: 'bob' },
-      })}`; // how to get name of user?
+        cursor: { index: index, length: length, name: req.session.username },
+      })}`; 
+      res.write(data)
     });
   });
 };
 
 exports.handleDocOp = (req, res) => {
-  const docID = req.params.DOCID;
+  // const docID = req.params.DOCID;
   const clientID = req.params.UID;
   const doc = clientMapping[clientID].doc;
   if (req.body.version < doc.version) {
