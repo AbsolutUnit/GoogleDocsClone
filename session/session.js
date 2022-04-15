@@ -55,7 +55,9 @@ app.use(
     store: store,
   })
 );
-
+app.use((req, res) => {
+  res.setHeader('X-CSE356', '61f9d48d3e92a433bf4fc893')
+})
 //middleware for maintaining login state
 //pass this middleware into any endpoint that requires authentication
 const isAuth = (req, res, next) => {
@@ -76,9 +78,6 @@ const clients = {}; //TODO change clients
 const documents = {};
 
 // endpoints
-app.get('/connect/:id', handleConnect);
-app.post('/op/:id', isAuth, handleOp);
-app.get('/doc/:id', isAuth, handleDoc);
 app.get('/', handleStart);
 app.post('/users/signup', userController.handleAddUser);
 app.post('/users/login', userController.handleLogin);
@@ -94,6 +93,12 @@ app.post(
   mediaController.handleUpload
 );
 app.get('/media/access/:MEDIAID', isAuth, mediaController.handleAccess);
+app.get('/doc/edit/:DOCID', isAuth, docController.handleDocEdit);
+app.get('/doc/connect/:DOCID/:UID', isAuth, docController.handleDocConnect);
+app.post('/doc/op/:DOCID/:UID', isAuth, docController.handleDocOp);
+app.post('/doc/presence/:DOCID/:UID', isAuth, docController.handleDocPresence);
+app.get('/doc/get/:DOCID/:UID', isAuth, docController.handleDocGet);
+app.get('/home', isAuth, homeController.handleHome);
 
 app.listen(8080, () => {
   console.log('Listening on port 8080');
@@ -102,6 +107,8 @@ app.listen(8080, () => {
 function handleStart(req, res, next) {
   res.end();
 }
+
+// ALL OLD M1 CODE 
 
 function handleConnect(req, res, next) {
   console.log('handleConnect called');
