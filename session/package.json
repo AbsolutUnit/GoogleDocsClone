@@ -22,7 +22,7 @@
     "multer": "^1.4.4",
     "nodemailer": "^6.7.3",
     "path": "^0.12.7",
-    "quill-delta-to-html": "^0.12.0",
+    "quill-delta-to-html": "^0.12.1",
     "reconnecting-websocket": "^4.4.0",
     "rich-text": "^4.1.0",
     "sharedb": "^2.2.5",
