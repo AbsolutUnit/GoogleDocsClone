@@ -32,6 +32,7 @@ exports.handleDocEdit = (req, res, next) => {
           <link href = "https://cdn.quilljs.com/1.3.6/quill.snow.css" rel = "stylesheet">
       </head>
       <body>
+          <h1 class = "header">Backyardigans Doogle Gocs Editor</h1>
           <div id = "editor">
       </div>
           <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
