@@ -70,7 +70,7 @@ exports.handleList = (req, res, next) => {
   res.end();
 };
 
-export function getTopTen() {
+exports.getTopTen = () => {
   const query = connection.createFetchQuery('docs', {
     $sort: { '_m.mtime': -1 },
     $limit: 10,
