@@ -47,6 +47,7 @@ func NewOTServer(config OTConfig) OTServer {
 }
 
 func (ots OTServer) Start() {
+	final.LogDebug(nil, "OT Server is running")
 	// TODO: find out why forever channel is here?
 	// forever := make(chan bool)
 	// <-forever

@@ -160,13 +160,11 @@ func (ss SessionServer) handleDocOp(accountId string, w http.ResponseWriter, r *
 		ss.writeError(w, "Invalid format for submitting a new op.")
 		return
 	}
-	// If the version is lower than the current version, then we will send back {status: "retry"} json
-	// and then return. This is because the grading script doesn't realize we support up to 10 reverts.
-	if body.Version < doc.Version { //
-		ss.writeStatus(w, "retry")
-		return
-	}
-	if body.Version > doc.Version { // purely for debugging
+	// if body.Version < doc.Version { //
+	// 	ss.writeStatus(w, "retry")
+	// 	return
+	// }
+	if body.Version > doc.Version { // for debugging
 		final.LogFatal(nil, "incoming version greater than doc version")
 	}
 

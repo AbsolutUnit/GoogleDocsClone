@@ -283,4 +283,5 @@ func (ss SessionServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (ss SessionServer) handleHome(accountId string, w http.ResponseWriter, r *http.Request) {
 	// TODO: actually not sure what to do here.
+	// For Aneek: can call ss.GetTop10() (from collection.go) to get most recent docs
 }
