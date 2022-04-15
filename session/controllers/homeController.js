@@ -14,6 +14,5 @@ const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions);
 const connection = new Connection(socket);
 
 exports.renderPage = (req, res, next) => {
-    let rankingOfKings = collectionController.getTopTen();
-
-}
+  let rankingOfKings = collectionController.getTopTen();
+};

@@ -25,7 +25,7 @@ exports.handleCreate = (req, res, next) => {
     }
     if (doc.type === null) {
       doc.create([{ insert: '\n' }], 'rich-text');
-      doc.submitSource = true
+      doc.submitSource = true;
       console.log('doc created!');
       let documentMap = new DocMapModel({
         docName: name,
@@ -66,8 +66,8 @@ exports.handleDelete = async (req, res, next) => {
 };
 
 exports.handleList = (req, res, next) => {
-    res.json(getTopTen());
-    res.end();
+  res.json(getTopTen());
+  res.end();
 };
 
 export function getTopTen() {
