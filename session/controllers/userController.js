@@ -1,4 +1,5 @@
 const UserModel = require('../Models/User');
+const nodemailer = require('nodemailer');
 
 async function sendMail(recipient, user, key) {
   //URGH POSTFIX SMTP SERVER MILESTONE 3
@@ -66,7 +67,7 @@ exports.handleLogin = async (req, res, next) => {
   } else {
     console.log('Successful login');
     req.session.isAuth = true;
-    req.session.username = user.name
+    req.session.username = user.name;
     res.json({ name: user.name });
   }
   res.end();

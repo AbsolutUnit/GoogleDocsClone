@@ -65,21 +65,6 @@ exports.handleDelete = async (req, res, next) => {
 };
 
 exports.handleList = (req, res, next) => {
-  // const query = connection.createFetchQuery('docs', {
-  //   $sort: { '_m.mtime': -1 },
-  //   $limit: 10,
-  // });
-  // let resList = [];
-  // query.on('ready', async function () {
-  //   docList = query.results;
-  //   for (const doc of docList) {
-  //     let name = await DocMapModel.findOne({ docID: doc.id });
-  //     resList.push({ item: doc.id, name: name.docName });
-  //   }
-  //   res.json(resList);
-  //   res.end();
-  // });
-
   exports.getTopTen(function (resList) {
     console.log(resList);
     res.json(resList);
