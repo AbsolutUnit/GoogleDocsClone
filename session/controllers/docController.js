@@ -9,25 +9,9 @@ const Connection = Client.Connection;
 Client.types.register(richText.type);
 
 const DocMapModel = require('../Models/Document');
-
 const connection = require('./../session').connection;
 
-let doc = class {
-  id;
-  semaphore;
-  constructor(id) {
-    this.id = id
-    this.semaphore = 1;
-  }
-  lock() {
-    this.semaphore--;
-  }
-  unlock() {
-    this.semaphore++;
-  }
-}
-
-let docs = {}
+const clientMapping = {}
 
 exports.handleDocEdit = (req, res) => {
     // TODO
@@ -43,34 +27,44 @@ exports.handleDocConnect = (req, res) => {
     };
     const docID = req.params.DOCID
     const clientID = req.params.UID
-
+    const localPresence = presence.create(parseInt(Math.random() * 1000000000).toString())
     const doc = connection.get('docs', docID)
+    clientMapping[clientID] = {
+        presence: localPresence,
+        doc: doc,
+    }
     doc.subscribe((err) => {
         if (err) console.log(err)
-        
-
+        const data = `data: ${JSON.stringify({ content: doc.data.ops, version: doc.version })}\n\n`;
+        doc.on('op', (op, source) => {
+            let data = `data: ${JSON.stringify(op)}\n\n`;
+            if (source) { // source will be untransformed op
+                data = `data: ${JSON.stringify({ack: source})}\n\n`;
+            }
+            res.write(data);
+        })
     })
-
-
 }
 
-exports.handleDocOp = async (req, res) => {
-    // TODO
-  const { docId, clientId } = req.params;
-  const { version, op } = req.body;
-
-  doc = docs[docId]
-  if (doc == null) {
-    return;
-  }
-
-  doc.unlock();
+exports.handleDocOp = (req, res) => {
+    const docID = req.params.DOCID
+    const clientID = req.params.UID
+    const doc = clientMapping[clientID].doc
+    if (req.body.version < doc.version) {
+        res.send(`${JSON.stringify({status: "retry"})}`)
+        return
+    }
+    doc.submitOp(req.body.op, {source: req.body.op})
+    res.send(`${JSON.stringify({status: "ok"})}`)
 }
 
 exports.handleDocPresence = (req, res) => {
-    // TODO
+    const docID = req.params.DOCID
+    const clientID = req.params.UID
+    const doc = connection.get('docs', docID)
 }
 
 exports.handleDocGet = (req, res) => {
-    // TODO
+    const docID = req.params.DOCID
+    const clientID = req.params.UID
 }

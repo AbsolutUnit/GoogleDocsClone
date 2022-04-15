@@ -25,6 +25,7 @@ exports.handleCreate = (req, res, next) => {
     }
     if (doc.type === null) {
       doc.create([{ insert: '\n' }], 'rich-text');
+      doc.submitSource = true
       console.log('doc created!');
       let documentMap = new DocMapModel({
         docName: name,
