@@ -99,7 +99,6 @@ app.post('/doc/op/:DOCID/:UID', isAuth, docController.handleDocOp);
 app.post('/doc/presence/:DOCID/:UID', isAuth, docController.handleDocPresence);
 app.get('/doc/get/:DOCID/:UID', isAuth, docController.handleDocGet);
 app.get('/home', isAuth, homeController.handleHome);
-app.get('/home', isAuth, homeController.renderPage);
 
 app.listen(8080, () => {
   console.log('Listening on port 8080');
