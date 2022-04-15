@@ -37,7 +37,7 @@ exports.handleAddUser = async (req, res, next) => {
   let user = await UserModel.findOne({ name });
   if (user) {
     console.log('name already taken!');
-    res.json({error: true, message: 'name already taken'})
+    res.json({ error: true, message: 'name already taken' })
     res.end();
     return;
   }
@@ -104,9 +104,9 @@ exports.handleVerify = async (req, res, next) => {
     user.active = true;
     await user.save();
   } else {
-    res.json({ error: true, message: "user not found" })
-    console.log('invalid key matching, user is not valid');
+    res.json({ error: true, message: "user not found" });
+    return
   }
   console.log('user verified!');
-  res.end();
+  res.json({ ok: true, message: "user not found" })
 };

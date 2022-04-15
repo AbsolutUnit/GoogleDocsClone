@@ -21,7 +21,7 @@ exports.handleHome = (req, res, next) => {
           x
         )}</a>`
     );
-  console.log(collectionController.getTopTen(hyperlinksFunc));
+  let hyperlinks = collectionController.getTopTen(hyperlinksFunc);
 
   let homePage = `
         <!DOCTYPE html>
@@ -36,7 +36,7 @@ exports.handleHome = (req, res, next) => {
                     });
 
                     document.getElementById("logout").addEventListener("click", function () {
-                        fetch("http://localhost:8080/users/logout", {
+                        fetch("http://${process.env["HOST"]}/users/logout", {
                             method: "POST"
                         });
                     });
