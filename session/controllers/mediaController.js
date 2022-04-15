@@ -32,14 +32,24 @@ exports.handleAccess = (req, res, next) => {
 
   filePath = pathMapping.get(mediaID);
 
-  fs.readFile(filePath, 'utf8', (err, data) => {
+  res.header('Content-Type', mimeMapping.get(mediaID));
+  res.sendFile(filePath, {}, function (err) {
     if (err) {
-      console.error(err);
-      return;
+      console.log("couldn't send file");
+    } else {
+      console.log(`${filePath} sent!`);
     }
-    //console.log(data);
-    res.header('Content-Type', mimeMapping.get(mediaID));
-    res.write(data);
-    res.end();
   });
+  res.end();
+
+  // fs.readFile(filePath, 'utf8', (err, data) => {
+  //   if (err) {
+  //     console.error(err);
+  //     return;
+  //   }
+  //   //console.log(data);
+  //   res.header('Content-Type', mimeMapping.get(mediaID));
+  //   res.write(data);
+  //   res.end();
+  // });
 };

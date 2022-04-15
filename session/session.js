@@ -1,4 +1,4 @@
-// imports 
+// imports
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -17,7 +17,7 @@ const nodemailer = require('nodemailer');
 const userController = require('./controllers/userController');
 const collectionController = require('./controllers/collectionController');
 const mediaController = require('./controllers/mediaController');
-const docController = require('./controller/docController');
+const docController = require('./controllers/docController');
 const homeController = require('./controllers/homeController');
 
 // db setup
@@ -32,11 +32,13 @@ mongoose
   .then((res) => {
     console.log('MongoDB connected');
   });
-const store = new MongoDBSession({ // export this?
+const store = new MongoDBSession({
+  // export this?
   uri: mongoURI,
   collection: 'mySessions',
 });
-const nameStore = new MongoDBSession({ // export this?
+const nameStore = new MongoDBSession({
+  // export this?
   uri: mongoURI,
   collection: 'documentnames',
 });
@@ -57,9 +59,10 @@ app.use(
   })
 );
 app.use((req, res) => {
-  res.setHeader('X-CSE356', '61f9d48d3e92a433bf4fc893')
-})
-const isAuth = (req, res, next) => { //pass this middleware into any endpoint that requires authentication
+  res.setHeader('X-CSE356', '61f9d48d3e92a433bf4fc893');
+});
+const isAuth = (req, res, next) => {
+  //pass this middleware into any endpoint that requires authentication
   if (req.session.isAuth) {
     next();
   } else {
@@ -67,6 +70,12 @@ const isAuth = (req, res, next) => { //pass this middleware into any endpoint th
     res.redirect('/');
   }
 };
+
+// sharedb websocket connection setup
+const Connection = Client.Connection; // unused?
+Client.types.register(richText.type);
+const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions);
+exports.connection = new Connection(socket);
 
 // endpoints
 app.get('/', handleStart);
@@ -99,9 +108,3 @@ app.listen(8080, () => {
 function handleStart(req, res, next) {
   res.end();
 }
-
-// sharedb websocket connection setup
-const Connection = Client.Connection; // unused?
-Client.types.register(richText.type);
-const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions);
-exports.connection = new Connection(socket);

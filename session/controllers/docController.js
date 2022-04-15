@@ -1,4 +1,4 @@
-const connection = require('session').connection;
+//const connection = require('session').connection;
 const WebSocket = require('ws');
 const ReconnectingWebSocket = require('reconnecting-websocket');
 const wsOptions = { WebSocket: WebSocket };
@@ -11,9 +11,14 @@ const Connection = Client.Connection;
 Client.types.register(richText.type);
 
 const DocMapModel = require('../Models/Document');
-const connection = require('./../session').connection;
+// const session = require('../session');
+// const conn = session.connection;
+
+const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions);
+const connection = new Connection(socket);
 
 const clientMapping = {};
+//also do user name mapping to ???, to attach name to cursor SSE response
 
 exports.handleDocEdit = (req, res) => {
   // TODO
@@ -32,7 +37,7 @@ exports.handleDocConnect = (req, res) => {
   const localPresence = presence.create(
     parseInt(Math.random() * 1000000000).toString()
   );
-  const doc = connection.get('docs', docID);
+  const doc = conn.get('docs', docID);
   clientMapping[clientID] = {
     presence: localPresence,
     doc: doc,
@@ -67,9 +72,15 @@ exports.handleDocOp = (req, res) => {
 };
 
 exports.handleDocPresence = (req, res) => {
+  const { index, length } = req.body();
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
-  const doc = connection.get('docs', docID);
+  const doc = conn.get('docs', docID);
+
+  const range = {
+    index,
+    length,
+  };
 
   let localPresence = clientMapping[docID];
   localPresence.submit(range, function (err) {
@@ -80,7 +91,7 @@ exports.handleDocPresence = (req, res) => {
 exports.handleDocGet = (req, res) => {
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
-  const doc = connection.get('docs', docID);
+  const doc = conn.get('docs', docID);
   const deltaOps = doc.data.ops;
   const converter = new QuillDeltaToHtmlConverter(deltaOps, {});
   const html = converter.convert();
