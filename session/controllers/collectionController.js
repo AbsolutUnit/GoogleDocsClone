@@ -40,6 +40,7 @@ exports.handleCreate = (req, res, next) => {
   res.json({ docid: docID });
   res.end();
 };
+
 exports.handleDelete = async (req, res, next) => {
   const { docid: docID } = req.body;
   const doc = connection.get('docs', docID);
@@ -62,7 +63,13 @@ exports.handleDelete = async (req, res, next) => {
   });
   res.end();
 };
+
 exports.handleList = (req, res, next) => {
+    res.json(getTopTen());
+    res.end();
+};
+
+export function getTopTen() {
   const query = connection.createFetchQuery('docs', {
     $sort: { '_m.mtime': -1 },
     $limit: 10,
@@ -74,7 +81,6 @@ exports.handleList = (req, res, next) => {
       let name = await DocMapModel.findOne({ docID: doc.id });
       resList.push({ id: doc.id, name: name.docName });
     }
-    res.json(resList);
-    res.end();
   });
-};
+  return resList;
+}

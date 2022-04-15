@@ -16,6 +16,7 @@ const nodemailer = require('nodemailer');
 const userController = require('./controllers/userController');
 const collectionController = require('./controllers/collectionController');
 const mediaController = require('./controllers/mediaController');
+const homeController = require('./controllers/homeController');
 
 const Connection = Client.Connection;
 Client.types.register(richText.type);
@@ -99,6 +100,7 @@ app.post('/doc/op/:DOCID/:UID', isAuth, docController.handleDocOp);
 app.post('/doc/presence/:DOCID/:UID', isAuth, docController.handleDocPresence);
 app.get('/doc/get/:DOCID/:UID', isAuth, docController.handleDocGet);
 app.get('/home', isAuth, homeController.handleHome);
+app.get('/home', isAuth, homeController.renderPage);
 
 app.listen(8080, () => {
   console.log('Listening on port 8080');
