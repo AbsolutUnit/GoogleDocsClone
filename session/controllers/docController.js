@@ -92,7 +92,8 @@ exports.handleDocEdit = (req, res, next) => {
       }
 
 
-      function handleUpdate(delta) {
+      function handleUpdate(delta, oldDelta, source) {
+        if(source !== 'user') return;
         console.log("Text Update");
         if (delta) {
           let xhr = new XMLHttpRequest();
@@ -183,11 +184,11 @@ exports.handleDocConnect = (req, res, next) => {
     'X-CSE356': '61f9d48d3e92a433bf4fc893',
     'Access-Control-Allow-Origin': '*',
     'Content-Type': 'text/event-stream',
-    'Connection': 'keep-alive',
+    Connection: 'keep-alive',
     'Cache-Control': 'no-cache',
   };
   res.writeHead(200, headers);
-    //TODO set head
+  //TODO set head
   const presence = conn.getDocPresence('docs', docID);
   presence.subscribe();
 
@@ -224,7 +225,7 @@ exports.handleDocConnect = (req, res, next) => {
       cursor: { index: index, length: length, name: req.session.username },
     })}`;
     res.write(data);
-    comsole.log("completed");
+    comsole.log('completed');
   });
 };
 
@@ -233,22 +234,22 @@ exports.handleDocOp = (req, res, next) => {
   console.log('handleDocOP ', req.body);
   const clientID = req.params.UID;
   const doc = clientMapping[clientID].doc;
-  console.log("req version: ",req.body.version)
-  console.log("doc.version: ",doc.version)
+  console.log('req version: ', req.body.version);
+  console.log('doc.version: ', doc.version);
   if (req.body.version < doc.version) {
     res.send(`${JSON.stringify({ status: 'retry' })}`);
     return;
   }
   console.log(req.body);
-  console.log("Submitting Op");
+  console.log('Submitting Op');
   doc.submitOp(req.body.ops, { source: req.body.ops });
-  console.log("After submit, doc.ops: ", doc.data);
+  console.log('After submit, doc.ops: ', doc.data);
   res.send(`${JSON.stringify({ status: 'ok' })}`);
 };
 
 exports.handleDocPresence = (req, res, next) => {
   const { index, length } = req.body;
-  console.log("Presence Updated");
+  console.log('Presence Updated');
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
   const doc = conn.get('docs', docID);
