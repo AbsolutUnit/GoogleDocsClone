@@ -73,7 +73,6 @@ const isAuth = (req, res, next) => {
     res.json({ error: true, message: 'not logged in' });
   }
 };
-app.use('/', express.static('../static'))
 
 // sharedb websocket connection setup
 const Connection = Client.Connection; // unused?
