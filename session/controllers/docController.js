@@ -201,11 +201,11 @@ exports.handleDocConnect = (req, res, next) => {
   res.writeHead(200, headers);
   //TODO set head
   const presence = conn.getDocPresence('docs', docID);
-  presence.subscribe();
-
-  const localPresence = presence.create(
-    parseInt(Math.random() * 1000000000).toString()
-  );
+  presence.subscribe(function(error) {
+    if (error) throw error;
+  });
+  // localPresence id was previously parseInt(Math.random() * 1000000000).toString()
+  const localPresence = presence.create(clientID);
   const doc = conn.get('docs', docID);
   clientMapping[clientID] = {
     presence: localPresence,
@@ -213,7 +213,6 @@ exports.handleDocConnect = (req, res, next) => {
   };
   doc.subscribe((err) => {
     if (err) res.json({ error: true, message: err });
-    console.log('doc is:', doc);
     console.log("Here's doc.data", doc.data);
     const data = `data: ${JSON.stringify({
       content: doc.data.ops,
@@ -286,8 +285,10 @@ exports.handleDocPresence = (req, res, next) => {
   };
 
   let localPresence = clientMapping[clientID].presence;
+  console.log("localPresence obj before submitting to localPresence: ", localPresence)
   localPresence.submit(range, function (err) {
     if (err) throw err;
+    console.log("submitted presence to sharedb")
   });
   res.json({});
   res.end();
