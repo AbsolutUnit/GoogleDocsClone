@@ -161,7 +161,7 @@ exports.handleDocConnect = (req, res, next) => {
     'X-CSE356': '61f9d48d3e92a433bf4fc893',
     'Access-Control-Allow-Origin': '*',
     'Content-Type': 'text/event-stream',
-    Connection: 'keep-alive',
+    'Connection': 'keep-alive',
     'Cache-Control': 'no-cache',
   };
   res.writeHead(200, headers);
