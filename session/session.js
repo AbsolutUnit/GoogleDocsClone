@@ -51,7 +51,6 @@ app.use((req, res, next) => {
 });
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
-app.use(express.static('../client')); // serve static files
 app.use(express.urlencoded({ extended: true }));
 app.use(
   session({
@@ -83,7 +82,9 @@ const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions);
 exports.connection = new Connection(socket);
 
 // endpoints
-app.get('/', handleStart);
+app.get('/', (req, res) => {
+  res.sendFile("/root/finaljs/static/login.html");
+});
 app.post('/users/signup', userController.handleAddUser);
 app.post('/users/login', userController.handleLogin);
 app.post('/users/logout', userController.handleLogout);
@@ -104,11 +105,8 @@ app.post('/doc/op/:DOCID/:UID', isAuth, docController.handleDocOp);
 app.post('/doc/presence/:DOCID/:UID', isAuth, docController.handleDocPresence);
 app.get('/doc/get/:DOCID/:UID', isAuth, docController.handleDocGet);
 app.get('/home', isAuth, homeController.handleHome);
+app.use('/', express.static("/root/finaljs/static"))
 
 app.listen(8080, () => {
   console.log('Listening on port 8080');
 });
-
-function handleStart(req, res, next) {
-  res.end();
-}
