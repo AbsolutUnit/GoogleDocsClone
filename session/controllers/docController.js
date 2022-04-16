@@ -15,7 +15,7 @@ const DocMapModel = require('../Models/Document');
 // const conn = session.connection;
 
 const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions);
-const connection = new Connection(socket);
+const conn = new Connection(socket);
 
 const clientMapping = {};
 //also do user name mapping to ???, to attach name to cursor SSE response
@@ -52,12 +52,12 @@ exports.handleDocEdit = (req, res, next) => {
         return DataTransfer.now();
       }
 
-      const ip = "localhost:8080";
+      const ip = "http://backyardigans.cse356.compas.cs.stonybrook.edu";
       const userId = generateId();
       var clientVersion = 0;
       var deltaQueue = [];
       let ack = false;
-      const eventSource = new EventSource(ip + "/doc/connect/" + ${documentID} + userId);
+      const eventSource = new EventSource(ip + "/doc/connect/" + "${documentID}/" + userId);
       const cursors = quill.getModule('cursors');
 
       async function flushQueue() {
@@ -66,7 +66,7 @@ exports.handleDocEdit = (req, res, next) => {
             let currentOp = deltaQueue[0];
             let retry = false;
             let ok = false;
-            fetch(ip + ${documentID} + userId, {
+            fetch(ip + "/doc/op/${documentID}/" + userId, {
               method: 'POST',
               body: JSON.stringify({
                 version: clientVersion,
@@ -105,7 +105,7 @@ exports.handleDocEdit = (req, res, next) => {
 
       function handleSendPosition(range) {
         if (range) {
-          fetch(ip + "/doc/presence/" + ${documentID} + userId, {
+          fetch(ip + "/doc/presence/" + "${documentID}/" + userId, {
             method: 'POST',
             body: JSON.stringify({
               index: range.index,
@@ -137,7 +137,7 @@ exports.handleDocEdit = (req, res, next) => {
             handleCursorEvent(response);
           }
           if (response.ack) {
-            clientVersion = cleintVersion + 1;
+            clientVersion = clientVersion + 1;
           }
         }
         catch {
@@ -166,7 +166,7 @@ exports.handleDocConnect = (req, res, next) => {
   };
   res.writeHead(200, headers);
 
-  const presence = connection.getDocPresence('docs', docID);
+  const presence = conn.getDocPresence('docs', docID);
   presence.subscribe();
 
   const localPresence = presence.create(
@@ -193,15 +193,13 @@ exports.handleDocConnect = (req, res, next) => {
       res.write(data);
     });
   });
-  localPresence.subscribe(() => {
-    presence.on('receive', (id, val) => {
-      const { index, length } = val; // no idea what val's shape is
-      let data = `data: ${JSON.stringify({
-        id: clientID,
-        cursor: { index: index, length: length, name: req.session.username },
-      })}`;
-      res.write(data);
-    });
+  presence.on('receive', (id, val) => {
+    const { index, length } = val; // no idea what val's shape is
+    let data = `data: ${JSON.stringify({
+      id: clientID,
+      cursor: { index: index, length: length, name: req.session.username },
+    })}`;
+    res.write(data);
   });
 };
 
