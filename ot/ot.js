@@ -11,7 +11,7 @@ const mongoURI =
 const db = require('sharedb-mongo')(mongoURI);
 
 ShareDB.types.register(richText.type);
-var backend = new ShareDB({ db :db, presence:true });
+var backend = new ShareDB({ db :db, presence:true, doNotForwardSendPresenceErrorsToClient: true});
 //createDoc(startServer);
 startServer();
 
