@@ -186,7 +186,7 @@ exports.handleDocConnect = (req, res, next) => {
     'Cache-Control': 'no-cache',
   };
   res.writeHead(200, headers);
-
+    //TODO set head
   const presence = conn.getDocPresence('docs', docID);
   presence.subscribe();
 
@@ -200,6 +200,8 @@ exports.handleDocConnect = (req, res, next) => {
   };
   doc.subscribe((err) => {
     if (err) res.json({ error: true, message: err });
+    console.log("Here's doc.data");
+    console.log(doc.data);
     const data = `data: ${JSON.stringify({
       content: doc.data.ops,
       version: doc.version,
@@ -221,6 +223,7 @@ exports.handleDocConnect = (req, res, next) => {
       cursor: { index: index, length: length, name: req.session.username },
     })}`;
     res.write(data);
+    comsole.log("completed");
   });
 };
 
