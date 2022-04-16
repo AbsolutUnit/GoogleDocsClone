@@ -45,12 +45,13 @@ const nameStore = new MongoDBSession({
 const app = express();
 app.use(cors());
 app.use((req, res, next) => {
-  console.log("request url: " + req.url);
-  console.log("request body : " + req.body);
+  console.log(req.url);
+  console.log(req.body);
   next();
 });
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
+app.use(express.static('../client')); // serve static files
 app.use(express.urlencoded({ extended: true }));
 app.use(
   session({
@@ -73,7 +74,7 @@ const isAuth = (req, res, next) => {
     res.json({ error: true, message: 'not logged in' });
   }
 };
-
+app.use('/', express.static('../static'))
 
 // sharedb websocket connection setup
 const Connection = Client.Connection; // unused?
@@ -82,9 +83,7 @@ const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions);
 exports.connection = new Connection(socket);
 
 // endpoints
-app.get('/', (req, res) => {
-    res.sendFile("/root/finaljs/static/login.html");
-});
+app.get('/', handleStart);
 app.post('/users/signup', userController.handleAddUser);
 app.post('/users/login', userController.handleLogin);
 app.post('/users/logout', userController.handleLogout);
@@ -106,7 +105,6 @@ app.post('/doc/presence/:DOCID/:UID', isAuth, docController.handleDocPresence);
 app.get('/doc/get/:DOCID/:UID', isAuth, docController.handleDocGet);
 app.get('/home', isAuth, homeController.handleHome);
 
-app.use(express.static('../static')); // serve static files
 app.listen(8080, () => {
   console.log('Listening on port 8080');
 });
