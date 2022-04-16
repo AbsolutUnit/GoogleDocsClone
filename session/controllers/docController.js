@@ -50,7 +50,7 @@ exports.handleDocEdit = (req, res, next) => {
         return Date.now();
       }
 
-      const ip = "http://backyardigans.cse356.compas.cs.stonybrook.edu";
+      const ip = "http://localhost:8080";
       const userId = generateId();
       var clientVersion = 0;
       var deltaQueue = [];
@@ -59,7 +59,6 @@ exports.handleDocEdit = (req, res, next) => {
       const cursors = quill.getModule('cursors');
 
       async function flushQueue() {
-        while (true) {
           if (deltaQueue.length > 0) {
             let currentOp = deltaQueue[0];
             let retry = false;
@@ -89,14 +88,35 @@ exports.handleDocEdit = (req, res, next) => {
                 console.log("waiting");
               }
             }
-          }
         }
       }
 
 
       function handleUpdate(delta) {
+        console.log("Text Update");
         if (delta) {
-          deltaQueue.append(delta);
+          let xhr = new XMLHttpRequest();
+          xhr.open("POST", ip + "/doc/op/${documentID}/" + userId)
+          xhr.setRequestHeader("Accept", "application/json");
+          xhr.setRequestHeader("Content-Type", "application/json");
+          let data = {
+            version : clientVersion,
+            ops : delta.ops
+          }
+          console.log("data", JSON.stringify(data))
+          xhr.send(JSON.stringify(data));
+
+          // fetch(ip + "/doc/op/${documentID}/" + userId, {
+          //   method: 'POST',
+          //   headers:  {
+          //     'Content-Type': 'application/json',
+          //     'Accept': 'application/json'
+          //   },
+          //   body: {
+          //     version: JSON.stringify(clientVersion),
+          //     ops: JSON.stringify(delta.ops)
+          //   }
+          // })
         } 
       }
 
@@ -206,18 +226,23 @@ exports.handleDocConnect = (req, res, next) => {
 
 exports.handleDocOp = (req, res, next) => {
   // const docID = req.params.DOCID;
+  console.log('handleDocOP ', req.body);
   const clientID = req.params.UID;
   const doc = clientMapping[clientID].doc;
   if (req.body.version < doc.version) {
     res.send(`${JSON.stringify({ status: 'retry' })}`);
     return;
   }
-  doc.submitOp(req.body.op, { source: req.body.op });
+  console.log(req.body);
+  console.log("Submitting Op");
+  doc.submitOp(req.body.ops, { source: req.body.ops });
+  console.log("After submit");
   res.send(`${JSON.stringify({ status: 'ok' })}`);
 };
 
 exports.handleDocPresence = (req, res, next) => {
-  const { index, length } = req.body();
+  const { index, length } = req.body;
+  console.log("Presence Updated");
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
   const doc = conn.get('docs', docID);
@@ -227,7 +252,7 @@ exports.handleDocPresence = (req, res, next) => {
     length,
   };
 
-  let localPresence = clientMapping[docID];
+  let localPresence = clientMapping[clientID].presence;
   localPresence.submit(range, function (err) {
     if (err) throw err;
   });

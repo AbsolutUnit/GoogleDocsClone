@@ -2,11 +2,11 @@
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
-const cors = require('cors');
 const WebSocket = require('ws');
 const ReconnectingWebSocket = require('reconnecting-websocket');
 const wsOptions = { WebSocket: WebSocket };
 const Client = require('sharedb/lib/client');
+const cors = require('cors');
 const richText = require('rich-text');
 const session = require('express-session');
 const MongoDBSession = require('connect-mongodb-session')(session);
@@ -49,8 +49,8 @@ app.use((req, res, next) => {
   console.log(req.body);
   next();
 });
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: false }));
 app.use(express.urlencoded({ extended: true }));
 app.use(
   session({
@@ -82,7 +82,7 @@ exports.connection = new Connection(socket);
 
 // endpoints
 app.get('/', (req, res) => {
-  res.sendFile("/root/finaljs/static/login.html");
+  res.sendFile("C:/Users/ank/Desktop/356-Doogle-Goc/cse356/static/login.html");
 });
 app.post('/users/signup', userController.handleAddUser);
 app.post('/users/login', userController.handleLogin);
