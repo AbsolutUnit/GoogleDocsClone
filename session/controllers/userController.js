@@ -16,6 +16,7 @@ async function sendMail(recipient, user, key) {
       pass: process.env['SMTP_PASS'],
     },
   });
+  console.log(recipient);
   const mailOptions = {
     from: `${process.env['SMTP_NAME']} <${process.env['SMTP_NAME']}@${process.env['SMTP_HOST']}>`,
     to: recipient,
@@ -26,7 +27,7 @@ async function sendMail(recipient, user, key) {
     if (error) {
       console.log(error);
     } else {
-      console.log('Email sent: ' + info.response);
+      console.log('Email sent: ');
     }
   });
 }
