@@ -70,6 +70,8 @@ exports.handleLogin = async (req, res, next) => {
     console.log('User does not exist!');
     res.json({ error: true, message: 'user does not exist' });
   } else if (password != user.password) {
+    console.log("form password: " + password)
+    console.log("user password: " + user.password)
     console.log('Wrong Password');
     res.json({ error: true, message: 'Wrong password' });
   } else if (!user.active) {
