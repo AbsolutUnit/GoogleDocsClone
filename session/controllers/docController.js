@@ -214,8 +214,7 @@ exports.handleDocConnect = (req, res, next) => {
     res.write(data);
     doc.on('op', (op, source) => {
       let data = `data: ${JSON.stringify(op)}\n\n`;
-      if (source) {
-        // source will be untransformed op
+      if (source.clientID == clientID) {
         data = `data: ${JSON.stringify({ ack: source })}\n\n`;
       }
       res.write(data);
@@ -245,7 +244,11 @@ exports.handleDocOp = (req, res, next) => {
   }
   console.log(req.body);
   console.log('Submitting Op');
-  doc.submitOp(req.body.op, { source: req.body.op });
+  const source = {
+    clientID: clientID,
+    op: req.body.op,
+  }
+  doc.submitOp(req.body.op, { source: source });
   console.log('After submit, doc.data: ', doc.data);
   res.send(`${JSON.stringify({ status: 'ok' })}`);
 };
