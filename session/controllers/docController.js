@@ -18,6 +18,8 @@ const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions);
 const conn = new Connection(socket);
 
 const clientMapping = {};
+const docVersionMapping = {};
+var docVersion = 0;
 //also do user name mapping to ???, to attach name to cursor SSE response
 
 exports.handleDocEdit = (req, res, next) => {
@@ -182,6 +184,12 @@ exports.handleDocEdit = (req, res, next) => {
 exports.handleDocConnect = (req, res, next) => {
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
+  if (docVersionMapping[docID] === undefined) {
+      docVersionMapping[docID] = 0;
+      docVersion = 0;
+  } else {
+      docVersion = docVersionMapping[docID];
+  }
 
   const headers = {
     'X-CSE356': '61f9d48d3e92a433bf4fc893',
@@ -209,36 +217,46 @@ exports.handleDocConnect = (req, res, next) => {
     console.log("Here's doc.data", doc.data);
     const data = `data: ${JSON.stringify({
       content: doc.data.ops,
-      version: doc.version,
+      version: docVersion,
     })}\n\n`;
     res.write(data);
     doc.on('op', (op, source) => {
       let data = `data: ${JSON.stringify(op)}\n\n`;
       if (source.clientID == clientID) {
-        data = `data: ${JSON.stringify({ ack: source })}\n\n`;
+        data = `data: ${JSON.stringify({ ack: source.op })}\n\n`;
       }
       res.write(data);
     });
   });
   presence.on('receive', (id, val) => {
     const { index, length } = val; // no idea what val's shape is
+    console.log("Presence object: " + val);
     let data = `data: ${JSON.stringify({
-      id: clientID,
-      cursor: { index: index, length: length, name: req.session.username },
+      presence: {
+        id: clientID,
+        cursor: { index: index, length: length, name: req.session.username },
+      }
     })}`;
+    console.log("Session Name: " + req.session.username);
     res.write(data);
-    comsole.log('completed');
+    console.log('completed');
   });
 };
 
 exports.handleDocOp = (req, res, next) => {
-  // const docID = req.params.DOCID;
+  const docID = req.params.DOCID;
   console.log('handleDocOP ', req.body);
   const clientID = req.params.UID;
   const doc = clientMapping[clientID].doc;
   console.log('req version: ', req.body.version);
-  console.log('doc.version: ', doc.version);
-  if (req.body.version < doc.version) {
+  console.log('doc.version: ', docVersion);
+  if (docVersionMapping[docID] === undefined) {
+      docVersionMapping[docID] = 0;
+      docVersion = 0;
+  } else {
+      docVersion = docVersionMapping[docID];
+  }
+  if (req.body.version < docVersion) {
     res.send(`${JSON.stringify({ status: 'retry' })}`);
     return;
   }
@@ -249,7 +267,9 @@ exports.handleDocOp = (req, res, next) => {
     op: req.body.op,
   }
   doc.submitOp(req.body.op, { source: source });
+  docVersionMapping[docID] = docVersionMapping[docID] + 1;
   console.log('After submit, doc.data: ', doc.data);
+  console.log('After submit, doc version: ', docVersion);
   res.send(`${JSON.stringify({ status: 'ok' })}`);
 };
 
