@@ -81,7 +81,7 @@ exports.connection = new Connection(socket);
 
 // endpoints
 app.get('/', (req, res) => {
-  res.sendFile("C:/Users/ank/Desktop/356-Doogle-Goc/cse356/static/login.html");
+  res.sendFile("/root/finaljs/static/login.html");
 });
 app.post('/users/signup', userController.handleAddUser);
 app.post('/users/login', userController.handleLogin);

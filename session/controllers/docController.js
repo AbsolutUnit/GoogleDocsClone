@@ -50,7 +50,7 @@ exports.handleDocEdit = (req, res, next) => {
         return Date.now();
       }
 
-      const ip = "http://localhost:8080";
+      const ip = "http://backyardigans.cse356.compas.cs.stonybrook.edu";
       const userId = generateId();
       var clientVersion = 0;
       var deltaQueue = [];
@@ -147,9 +147,10 @@ exports.handleDocEdit = (req, res, next) => {
         flushQueue();
         try {
           const response = JSON.parse(e.data);
-          if (response.contents) {
+	  console.log(response);
+          if (response.content) {
             clientVersion = response.version;
-            quill.setContents(response.contents);
+            quill.setContents(response.content);
           }
           if (response.id) {
             handleCursorEvent(response);
@@ -232,6 +233,8 @@ exports.handleDocOp = (req, res, next) => {
   console.log('handleDocOP ', req.body);
   const clientID = req.params.UID;
   const doc = clientMapping[clientID].doc;
+  console.log("req version: ",req.body.version)
+  console.log("doc.version: ",doc.version)
   if (req.body.version < doc.version) {
     res.send(`${JSON.stringify({ status: 'retry' })}`);
     return;
@@ -239,7 +242,7 @@ exports.handleDocOp = (req, res, next) => {
   console.log(req.body);
   console.log("Submitting Op");
   doc.submitOp(req.body.ops, { source: req.body.ops });
-  console.log("After submit");
+  console.log("After submit, doc.ops: ", doc.data);
   res.send(`${JSON.stringify({ status: 'ok' })}`);
 };
 
