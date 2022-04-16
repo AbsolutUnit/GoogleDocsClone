@@ -45,11 +45,9 @@ exports.handleDocEdit = (req, res, next) => {
           cursors: true,
         }
       });
-      quill.on('text-change', handleUpdate);
-      quill.on('selection-change', handleSendPosition);
 
       function generateId() {
-        return DataTransfer.now();
+        return Date.now();
       }
 
       const ip = "http://backyardigans.cse356.compas.cs.stonybrook.edu";
@@ -94,7 +92,6 @@ exports.handleDocEdit = (req, res, next) => {
           }
         }
       }
-      flushQueue();
 
 
       function handleUpdate(delta) {
@@ -127,6 +124,7 @@ exports.handleDocEdit = (req, res, next) => {
       }
 
       eventSource.onmessage = (e) => {
+        flushQueue();
         try {
           const response = JSON.parse(e.data);
           if (response.contents) {
@@ -146,11 +144,14 @@ exports.handleDocEdit = (req, res, next) => {
             quill.updateContents(op);
           }
         }
-      }</script>
+      }
+      
+      quill.on('text-change', handleUpdate);
+      quill.on('selection-change', handleSendPosition);
+      </script>
       </body>
   </html>`;
   res.send(editPage);
-  res.end();
 };
 
 exports.handleDocConnect = (req, res, next) => {
@@ -161,7 +162,7 @@ exports.handleDocConnect = (req, res, next) => {
     'X-CSE356': '61f9d48d3e92a433bf4fc893',
     'Access-Control-Allow-Origin': '*',
     'Content-Type': 'text/event-stream',
-    Connection: 'keep-alive',
+    'Connection': 'keep-alive',
     'Cache-Control': 'no-cache',
   };
   res.writeHead(200, headers);
