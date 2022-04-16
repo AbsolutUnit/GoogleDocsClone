@@ -93,7 +93,10 @@ exports.handleDocEdit = (req, res, next) => {
 
 
       function handleUpdate(delta, oldDelta, source) {
-        if(source !== 'user') return;
+        if(source !== 'user') {
+	    console.log('source is...', source);
+	    return;
+	}
         console.log("Text Update");
         if (delta) {
           let xhr = new XMLHttpRequest();
@@ -202,8 +205,8 @@ exports.handleDocConnect = (req, res, next) => {
   };
   doc.subscribe((err) => {
     if (err) res.json({ error: true, message: err });
-    console.log("Here's doc.data");
-    console.log(doc.data);
+    console.log('doc is:', doc);
+    console.log("Here's doc.data", doc.data);
     const data = `data: ${JSON.stringify({
       content: doc.data.ops,
       version: doc.version,
@@ -242,8 +245,8 @@ exports.handleDocOp = (req, res, next) => {
   }
   console.log(req.body);
   console.log('Submitting Op');
-  doc.submitOp(req.body.ops, { source: req.body.ops });
-  console.log('After submit, doc.ops: ', doc.data);
+  doc.submitOp(req.body.op, { source: req.body.op });
+  console.log('After submit, doc.data: ', doc.data);
   res.send(`${JSON.stringify({ status: 'ok' })}`);
 };
 

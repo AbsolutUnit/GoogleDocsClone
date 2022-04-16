@@ -1,11 +1,14 @@
+require('dotenv').config()
 const UserModel = require('../Models/User');
 const nodemailer = require('nodemailer');
 const process = require('process');
 
+/*
 async function sendMail(recipient, user, key) {
   //URGH POSTFIX SMTP SERVER MILESTONE 3
   console.log(process.env);
   const host = process.env['SMTP_HOST'];
+  // console.log("value of host in sendMail: ", host)
   const link = encodeURI(`http://${host}/users/verify/?key=${key}&name=${user}`);
   const transporter = nodemailer.createTransport({
     service: 'postfix',
@@ -19,6 +22,38 @@ async function sendMail(recipient, user, key) {
   console.log(recipient);
   const mailOptions = {
     from: `${process.env['SMTP_NAME']} <${process.env['SMTP_NAME']}@${process.env['SMTP_HOST']}>`,
+    to: recipient,
+    subject: 'Doogle Gocs Verification Email',
+    text: link,
+  };
+  transporter.sendMail(mailOptions, function (error, info) {
+    if (error) {
+      console.log(error);
+    } else {
+      console.log('Email sent: ');
+    }
+  });
+}
+*/
+
+async function sendMail(recipient, user, key) {
+  //URGH POSTFIX SMTP SERVER MILESTONE 3
+  console.log(process.env);
+  const host = "backyardigans.cse356.compas.cs.stonybrook.edu";
+  // console.log("value of host in sendMail: ", host)
+  const link = encodeURI(`http://${host}/users/verify/?key=${key}&name=${user}`);
+  const transporter = nodemailer.createTransport({
+    service: 'postfix',
+    host: host,
+    port: 25,
+    auth: {
+      user: "root",
+      pass: "cse356!!!312asdacm",
+    },
+  });
+  console.log(recipient);
+  const mailOptions = {
+    from: "backyardigans@backyardigans.cse356.compas.cs.stonybrook.edu",
     to: recipient,
     subject: 'Doogle Gocs Verification Email',
     text: link,
