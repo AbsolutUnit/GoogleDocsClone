@@ -11,11 +11,9 @@ const Connection = Client.Connection;
 Client.types.register(richText.type);
 
 const DocMapModel = require('../Models/Document');
-// const session = require('../session');
-// const conn = session.connection;
 
-// const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions);
-// const conn = new Connection(socket);
+const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions);
+const conn = new Connection(socket);
 
 const clientMapping = {};
 const docVersionMapping = {};
@@ -185,15 +183,10 @@ exports.handleDocConnect = (req, res, next) => {
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
 
-  // create new things for new client
-  const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions)
-  const conn = new Connection(socket)
-  const doc = conn.get('docs', docID)
   const presence = conn.getDocPresence('docs', docID);
   const localPresence = presence.create(clientID);
   // store new client
   clientMapping[clientID] = {
-    conn: conn,
     doc: doc,
     presence: localPresence,
     res: res,
@@ -236,7 +229,7 @@ exports.handleDocConnect = (req, res, next) => {
     console.log("doc.data in doc.subscribe: ", doc.data);
     let data = `data: ${JSON.stringify({
       content: doc.data.ops,
-      version: doc.version, 
+      version: docVersion, 
     })}\n\n`; // can switch bw doc.version and docVersion
     console.log("event stream data (contents,version): ", data)
     res.write(data);
@@ -267,7 +260,7 @@ exports.handleDocOp = (req, res, next) => {
   } else {
       docVersion = docVersionMapping[docID];
   }
-  if (req.body.version < doc.version) { // can switch bw doc.version and docVersion
+  if (req.body.version < docVersion) { // can switch bw doc.version and docVersion
     res.send(`${JSON.stringify({ status: 'retry' })}`);
     return;
   }
@@ -288,14 +281,12 @@ exports.handleDocPresence = (req, res, next) => {
   const { index, length } = req.body;
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
-  const doc = clientMapping[clientID].conn.get('docs', docID);
+  const doc = clientMapping[clientID].doc;
 
   const range = {
     index,
     length,
   };
-
-  const localPresence = clientMapping[clientID].presence;
 
   // super hacky: just go thru clients and echo presence back
   for (let client in clientMapping) {
