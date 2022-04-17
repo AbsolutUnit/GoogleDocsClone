@@ -182,16 +182,10 @@ exports.handleDocEdit = (req, res, next) => {
 exports.handleDocConnect = (req, res, next) => {
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
-
+  
+  const doc = conn.get('docs', docID)
   const presence = conn.getDocPresence('docs', docID);
   const localPresence = presence.create(clientID);
-  // store new client
-  clientMapping[clientID] = {
-    doc: doc,
-    presence: localPresence,
-    res: res,
-    name: req.session.username
-  }
   // set doc version in case new doc
   if (docVersionMapping[docID] === undefined) {
       docVersionMapping[docID] = 0;
@@ -224,6 +218,13 @@ exports.handleDocConnect = (req, res, next) => {
   //   res.write(data);
   //   console.log('completed');
   // });
+  // store new client
+  clientMapping[clientID] = {
+    doc: doc,
+    presence: localPresence,
+    res: res,
+    name: req.session.username
+  }
   doc.subscribe((err) => {
     if (err) res.json({ error: true, message: err });
     console.log("doc.data in doc.subscribe: ", doc.data);
@@ -288,15 +289,24 @@ exports.handleDocPresence = (req, res, next) => {
     length,
   };
 
+  const headers = {
+    'X-CSE356': '61f9d48d3e92a433bf4fc893',
+    'Access-Control-Allow-Origin': '*',
+    'Content-Type': 'text/event-stream',
+    'Connection': 'keep-alive',
+    'Cache-Control': 'no-cache',
+  };
   // super hacky: just go thru clients and echo presence back
   for (let client in clientMapping) {
     const data = `data: ${JSON.stringify({
       presence: {
         id: clientID,
-        cursor: { index: index, length: length, name: client.name },
+        cursor: { index: index, length: length, name: req.session.username },
       }
-    })}`
-    client.res.write(data)
+    })}\n\n`
+    console.log('hacky presence ES data: ', data)
+    console.log('cursed res: ', client.res)
+    clientMapping[client].res.write(data)
   }
   // let data = `data: ${JSON.stringify({
   //   presence: {
@@ -319,7 +329,7 @@ exports.handleDocPresence = (req, res, next) => {
 exports.handleDocGet = (req, res, next) => {
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
-  const doc = clientMapping[clientID].conn.get('docs', docID);
+  const doc = conn.get('docs', docID);
   const deltaOps = doc.data.ops;
   const converter = new QuillDeltaToHtmlConverter(deltaOps, {});
   const html = converter.convert();
