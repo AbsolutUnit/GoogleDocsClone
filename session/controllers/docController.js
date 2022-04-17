@@ -14,8 +14,8 @@ const DocMapModel = require('../Models/Document');
 // const session = require('../session');
 // const conn = session.connection;
 
-const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions);
-const conn = new Connection(socket);
+// const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions);
+// const conn = new Connection(socket);
 
 const clientMapping = {};
 const docVersionMapping = {};
@@ -184,38 +184,58 @@ exports.handleDocEdit = (req, res, next) => {
 exports.handleDocConnect = (req, res, next) => {
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
+
+  // create new things for new client
+  const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions)
+  const conn = new Connection(socket)
+  const doc = conn.get('docs', docID)
+  const presence = conn.getDocPresence('docs', docID);
+  const localPresence = presence.create(clientID);
+  // store new client
+  clientMapping[clientID] = {
+    conn: conn,
+    doc: doc,
+    presence: localPresence,
+    res: res,
+    name: req.session.username
+  }
+  // set doc version in case new doc
   if (docVersionMapping[docID] === undefined) {
       docVersionMapping[docID] = 0;
       docVersion = 0;
   } else {
       docVersion = docVersionMapping[docID];
   }
-
+  // sse headers
   const headers = {
     'X-CSE356': '61f9d48d3e92a433bf4fc893',
     'Access-Control-Allow-Origin': '*',
     'Content-Type': 'text/event-stream',
-    Connection: 'keep-alive',
+    'Connection': 'keep-alive',
     'Cache-Control': 'no-cache',
   };
   res.writeHead(200, headers);
-  //TODO set head
-  const presence = conn.getDocPresence('docs', docID);
-  presence.subscribe(function(error) {
-    if (error) throw error;
-  });
-  // localPresence id was previously parseInt(Math.random() * 1000000000).toString()
-  const localPresence = presence.create(clientID);
-  const doc = conn.get('docs', docID);
-  clientMapping[clientID] = {
-    presence: localPresence,
-    doc: doc,
-  };
+  // presence.subscribe(function(error) {
+  //   if (error) throw error;
+  // });
+  // presence.on('receive', (id, val) => {
+  //   const { index, length } = val; // no idea what val's shape is
+  //   console.log("Presence object: " + val);
+  //   let data = `data: ${JSON.stringify({
+  //     presence: {
+  //       id: id,
+  //       cursor: { index: index, length: length, name: req.session.username },
+  //     }
+  //   })}`;
+  //   console.log("Session Name: " + req.session.username);
+  //   res.write(data);
+  //   console.log('completed');
+  // });
   doc.subscribe((err) => {
     if (err) res.json({ error: true, message: err });
     console.log("Here's doc.data", doc.data);
     const data = `data: ${JSON.stringify({
-      content: doc.data.ops,
+      content: doc.data.op,
       version: docVersion,
     })}\n\n`;
     res.write(data);
@@ -226,19 +246,6 @@ exports.handleDocConnect = (req, res, next) => {
       }
       res.write(data);
     });
-  });
-  presence.on('receive', (id, val) => {
-    const { index, length } = val; // no idea what val's shape is
-    console.log("Presence object: " + val);
-    let data = `data: ${JSON.stringify({
-      presence: {
-        id: clientID,
-        cursor: { index: index, length: length, name: req.session.username },
-      }
-    })}`;
-    console.log("Session Name: " + req.session.username);
-    res.write(data);
-    console.log('completed');
   });
 };
 
@@ -274,22 +281,41 @@ exports.handleDocOp = (req, res, next) => {
 
 exports.handleDocPresence = (req, res, next) => {
   const { index, length } = req.body;
-  console.log('Presence Updated');
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
-  const doc = conn.get('docs', docID);
+  const doc = clientMapping[clientID].conn.get('docs', docID);
 
   const range = {
     index,
     length,
   };
 
-  let localPresence = clientMapping[clientID].presence;
-  console.log("localPresence obj before submitting to localPresence: ", localPresence)
-  localPresence.submit(range, function (err) {
-    if (err) throw err;
-    console.log("submitted presence to sharedb")
-  });
+  const localPresence = clientMapping[clientID].presence;
+
+  // super hacky: just go thru clients and echo presence back
+  for (let client in clientMapping) {
+    const data = `data: ${JSON.stringify({
+      presence: {
+        id: clientID,
+        cursor: { index: index, length: length, name: client.name },
+      }
+    })}`
+    client.res.write(data)
+  }
+  // let data = `data: ${JSON.stringify({
+  //   presence: {
+  //     id: clientID,
+  //     cursor: { index: index, length: length, name: req.session.username },
+  //   }
+  // })}`;
+  // console.log("Session Name: " + req.session.username);
+  // res.write(data);
+
+  // console.log("localPresence obj before submitting to localPresence: ", localPresence)
+  // localPresence.submit(range, function (err) {
+  //   if (err) throw err;
+  //   console.log("submitted presence to sharedb")
+  // });
   res.json({});
   res.end();
 };
@@ -297,7 +323,7 @@ exports.handleDocPresence = (req, res, next) => {
 exports.handleDocGet = (req, res, next) => {
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
-  const doc = conn.get('docs', docID);
+  const doc = clientMapping[clientID].conn.get('docs', docID);
   const deltaOps = doc.data.ops;
   const converter = new QuillDeltaToHtmlConverter(deltaOps, {});
   const html = converter.convert();
