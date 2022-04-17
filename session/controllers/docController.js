@@ -233,17 +233,21 @@ exports.handleDocConnect = (req, res, next) => {
   // });
   doc.subscribe((err) => {
     if (err) res.json({ error: true, message: err });
-    console.log("Here's doc.data", doc.data);
-    const data = `data: ${JSON.stringify({
-      content: doc.data.op,
-      version: docVersion,
-    })}\n\n`;
+    console.log("doc.data in doc.subscribe: ", doc.data);
+    let data = `data: ${JSON.stringify({
+      content: doc.data.ops,
+      version: doc.version, 
+    })}\n\n`; // can switch bw doc.version and docVersion
+    console.log("event stream data (contents,version): ", data)
     res.write(data);
     doc.on('op', (op, source) => {
+      if (op.ops) op = op.ops
+      console.log('transformed op: ', op)
       let data = `data: ${JSON.stringify(op)}\n\n`;
       if (source.clientID == clientID) {
         data = `data: ${JSON.stringify({ ack: source.op })}\n\n`;
       }
+      console.log("event stream data (transformed op): ", data)
       res.write(data);
     });
   });
@@ -255,18 +259,18 @@ exports.handleDocOp = (req, res, next) => {
   const clientID = req.params.UID;
   const doc = clientMapping[clientID].doc;
   console.log('req version: ', req.body.version);
-  console.log('doc.version: ', docVersion);
+  console.log('(our) doc.version: ', docVersion);
+  console.log('(sharedb) doc.version: ', doc.version)
   if (docVersionMapping[docID] === undefined) {
       docVersionMapping[docID] = 0;
       docVersion = 0;
   } else {
       docVersion = docVersionMapping[docID];
   }
-  if (req.body.version < docVersion) {
+  if (req.body.version < doc.version) { // can switch bw doc.version and docVersion
     res.send(`${JSON.stringify({ status: 'retry' })}`);
     return;
   }
-  console.log(req.body);
   console.log('Submitting Op');
   const source = {
     clientID: clientID,
@@ -275,7 +279,8 @@ exports.handleDocOp = (req, res, next) => {
   doc.submitOp(req.body.op, { source: source });
   docVersionMapping[docID] = docVersionMapping[docID] + 1;
   console.log('After submit, doc.data: ', doc.data);
-  console.log('After submit, doc version: ', docVersion);
+  console.log('After submit, (our) doc version: ', docVersion);
+  console.log('After submit, (sharedb) doc version: ', doc.version);
   res.send(`${JSON.stringify({ status: 'ok' })}`);
 };
 
