@@ -3,7 +3,13 @@ const UserModel = require('../Models/User');
 const nodemailer = require('nodemailer');
 const process = require('process');
 
-/*
+/**
+ * Send an email to a recipient for username, with key.
+ *
+ * @param recipient the email address to send to.
+ * @param user the username of the email.
+ * @param key the verification key to signup with.
+ */
 async function sendMail(recipient, user, key) {
   //URGH POSTFIX SMTP SERVER MILESTONE 3
   console.log(process.env);
@@ -68,6 +74,12 @@ async function sendMail(recipient, user, key) {
 }
 
 //assumes body has name, email, password.
+/**
+ * Sign up a user.
+ *
+ * @param req.body { name, email, password }
+ * @returns res.json: {}
+ */
 exports.handleAddUser = async (req, res, next) => {
   //TODO add error handling for missing password or name
   const { name, email, password } = req.body;
@@ -96,7 +108,12 @@ exports.handleAddUser = async (req, res, next) => {
   res.end();
 };
 
-//email takes in an email, and password
+/**
+ * Handle the user login enpoint.
+ *
+ * @param req.body { email, password }
+ * @returns res.json: { name }
+ */
 exports.handleLogin = async (req, res, next) => {
   const { email, password } = req.body;
   const user = await UserModel.findOne({ email });
@@ -121,6 +138,12 @@ exports.handleLogin = async (req, res, next) => {
   return;
 };
 
+/**
+ * Logout a user.
+ *
+ * @param req.body {}
+ * @returns res.json: {}
+ */
 exports.handleLogout = (req, res, next) => {
   req.session.destroy((err) => {
     if (err) {
@@ -131,7 +154,11 @@ exports.handleLogout = (req, res, next) => {
   res.end();
 };
 
-//assumes request sends name and key
+/**
+ * Verify a user's email.
+ * @param req.query {name, key}
+ * @returns: res.json: {}
+ */
 exports.handleVerify = async (req, res, next) => {
   const name = decodeURI(req.query.name);
   const key = req.query.key;

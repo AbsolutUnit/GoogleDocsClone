@@ -20,6 +20,12 @@ const docVersionMapping = {};
 var docVersion = 0;
 //also do user name mapping to ???, to attach name to cursor SSE response
 
+/**
+ * Show the UI for editing a document: /doc/edit/:documentId
+ *
+ * @param req.params: {documentId}
+ * @returns <html>
+ */
 exports.handleDocEdit = (req, res, next) => {
   let documentID = req.params.DOCID;
   let editPage = `
@@ -179,6 +185,12 @@ exports.handleDocEdit = (req, res, next) => {
   res.send(editPage);
 };
 
+/**
+ * Connect to this server to receive document operations with HTML server side events.
+ *
+ * @param req.params: {documentId, clientId}
+ * @returns an event stream containing the document data.
+ */
 exports.handleDocConnect = (req, res, next) => {
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
@@ -247,6 +259,13 @@ exports.handleDocConnect = (req, res, next) => {
   });
 };
 
+/**
+ * Submit a new change to the document.
+ *
+ * @param req.params {documentId, clientId}
+ * @param req.body {version, op}
+ * @returns req.json: { status }
+ */
 exports.handleDocOp = (req, res, next) => {
   const docID = req.params.DOCID;
   console.log('handleDocOP ', req.body);
@@ -278,6 +297,13 @@ exports.handleDocOp = (req, res, next) => {
   res.send(`${JSON.stringify({ status: 'ok' })}`);
 };
 
+/**
+ * Submit a new cursor position and selection length to the document.
+ *
+ * @param req.params {documentId, clientId}
+ * @param req.body {index, length}
+ * @returns req.json: {}
+ * */
 exports.handleDocPresence = (req, res, next) => {
   const { index, length } = req.body;
   const docID = req.params.DOCID;
@@ -326,6 +352,11 @@ exports.handleDocPresence = (req, res, next) => {
   res.end();
 };
 
+/**
+ * Get the document represented as HTML.
+ * @param req.params {documentId, clientId}
+ * @returns <html>
+ */
 exports.handleDocGet = (req, res, next) => {
   const docID = req.params.DOCID;
   const clientID = req.params.UID;

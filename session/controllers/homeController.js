@@ -13,6 +13,10 @@ const DocMapModel = require('../Models/Document');
 const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions);
 const connection = new Connection(socket);
 
+/**
+ * Show the homepage. User will be logged in.
+ * @returns <html>
+ */
 exports.handleHome = (req, res, next) => {
   const hyperlinksFunc = (rankings) =>
     rankings.map(

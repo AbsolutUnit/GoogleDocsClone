@@ -12,6 +12,12 @@ const DocMapModel = require('../Models/Document');
 const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions);
 const connection = new Connection(socket);
 
+/**
+ * Create a new document (collection) to be edited.
+ *
+ * @param req.body { name }
+ * @returns req.json: {docId}
+ */
 exports.handleCreate = (req, res, next) => {
   const { name } = req.body;
   const docID = parseInt(Math.random() * 1000000000).toString();
@@ -45,6 +51,12 @@ exports.handleCreate = (req, res, next) => {
   res.end();
 };
 
+/**
+ * Delete a document from the server.
+ *
+ * @param req.body { docid }
+ * @returns res.json { status }
+ */
 exports.handleDelete = async (req, res, next) => {
   const { docid: docID } = req.body;
   const doc = connection.get('docs', docID);
@@ -75,6 +87,11 @@ exports.handleDelete = async (req, res, next) => {
   res.end();
 };
 
+/**
+ * Get the list of the ten most recently modified documents.
+ *
+ * @returns req.json [{ id, name }]
+ */
 exports.handleList = (req, res, next) => {
   exports.getTopTen(function (resList) {
     console.log(resList);
@@ -83,6 +100,12 @@ exports.handleList = (req, res, next) => {
   });
 };
 
+/**
+ * Get the top 10 most recently modified documents from ShareDB.
+ *
+ * @param callback
+ * @returns none, but calls the callback
+ */
 exports.getTopTen = (callback) => {
   const query = connection.createFetchQuery('docs', {
     $sort: { '_m.mtime': -1 },
