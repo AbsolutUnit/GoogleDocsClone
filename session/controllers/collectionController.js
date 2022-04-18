@@ -31,24 +31,21 @@ exports.handleCreate = (req, res, next) => {
     }
     if (doc.type === null) {
       doc.create([{ insert: '\n' }], 'rich-text');
-      console.log('doc created!');
       let documentMap = new DocMapModel({
         docName: name,
         docID,
       });
       await documentMap.save(function (err) {
         if (err) {
+          console.log(err);
           res.json({ error: true, message: "couldn't save the document map" });
-          res.end();
           return;
         }
       });
-      console.log('document mapping saved!');
     }
   });
 
   res.json({ docid: docID });
-  res.end();
 };
 
 /**
@@ -64,9 +61,7 @@ exports.handleDelete = async (req, res, next) => {
     if (err) throw err;
     //console.log(doc);
     if (doc.type === null) {
-      console.log('doc to delete does not exist!');
-      res.json({ error: true, message: 'could not delete document.' });
-      res.end();
+      res.json({ error: true, message: 'Could not delete document.' });
       return;
     } else if (doc.type !== null) {
       doc.del(); // this or doc.del()
@@ -74,17 +69,12 @@ exports.handleDelete = async (req, res, next) => {
       DocMapModel.deleteOne({ docID }, function (err) {
         if (err) {
           console.log(err);
-          res.json({ error: true, message: 'could not delete document.' });
-          res.end();
+          res.json({ error: true, message: 'Could not delete document.' });
           return;
-        } else {
-          console.log('document mapping deleted!');
-        }
-      });
+        }      });
     }
   });
   res.json({});
-  res.end();
 };
 
 /**
@@ -94,9 +84,7 @@ exports.handleDelete = async (req, res, next) => {
  */
 exports.handleList = (req, res, next) => {
   exports.getTopTen(function (resList) {
-    console.log(resList);
     res.json(resList);
-    res.end();
   });
 };
 

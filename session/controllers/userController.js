@@ -1,4 +1,3 @@
-require('dotenv').config()
 const UserModel = require('../Models/User');
 const nodemailer = require('nodemailer');
 const process = require('process');
@@ -11,10 +10,7 @@ const process = require('process');
  * @param key the verification key to signup with.
  */
 async function sendMail(recipient, user, key) {
-  //URGH POSTFIX SMTP SERVER MILESTONE 3
-  console.log(process.env);
   const host = process.env['SMTP_HOST'];
-  // console.log("value of host in sendMail: ", host)
   const link = encodeURI(`http://${host}/users/verify/?key=${key}&name=${user}`);
   const transporter = nodemailer.createTransport({
     service: 'postfix',
@@ -25,7 +21,6 @@ async function sendMail(recipient, user, key) {
       pass: process.env['SMTP_PASS'],
     },
   });
-  console.log(recipient);
   const mailOptions = {
     from: `${process.env['SMTP_NAME']} <${process.env['SMTP_NAME']}@${process.env['SMTP_HOST']}>`,
     to: recipient,
@@ -35,59 +30,20 @@ async function sendMail(recipient, user, key) {
   transporter.sendMail(mailOptions, function (error, info) {
     if (error) {
       console.log(error);
-    } else {
-      console.log('Email sent: ');
-    }
-  });
-}
-*/
-
-async function sendMail(recipient, user, key) {
-  //URGH POSTFIX SMTP SERVER MILESTONE 3
-  console.log(process.env);
-  const host = "backyardigans.cse356.compas.cs.stonybrook.edu";
-  // console.log("value of host in sendMail: ", host)
-  const link = encodeURI(`http://${host}/users/verify/?key=${key}&name=${user}`);
-  const transporter = nodemailer.createTransport({
-    service: 'postfix',
-    host: host,
-    port: 25,
-    auth: {
-      user: "root",
-      pass: "cse356!!!312asdacm",
-    },
-  });
-  console.log(recipient);
-  const mailOptions = {
-    from: "backyardigans@backyardigans.cse356.compas.cs.stonybrook.edu",
-    to: recipient,
-    subject: 'Doogle Gocs Verification Email',
-    text: link,
-  };
-  transporter.sendMail(mailOptions, function (error, info) {
-    if (error) {
-      console.log(error);
-    } else {
-      console.log('Email sent: ');
-    }
-  });
+    }});
 }
 
-//assumes body has name, email, password.
 /**
  * Sign up a user.
  *
  * @param req.body { name, email, password }
  * @returns res.json: {}
  */
-exports.handleAddUser = async (req, res, next) => {
-  //TODO add error handling for missing password or name
+exports.handleAddUser = async (req, res) => {
   const { name, email, password } = req.body;
   let user = await UserModel.findOne({ name });
   if (user) {
-    console.log('name already taken!');
-    res.json({ error: true, message: 'name already taken' });
-    res.end();
+    res.json({ error: true, message: 'Name already taken.' });
     return;
   }
   const key = parseInt(Math.random() * 1000000000);
@@ -100,12 +56,10 @@ exports.handleAddUser = async (req, res, next) => {
     key, // TODO: encrypt this too if i am not lazy
   });
   await user.save();
-  console.log('user saved');
 
   //send email for verification, clicking link will hit endpoint
   sendMail(email, name, key);
-  res.json({ ok: true, message: 'user added.' });
-  res.end();
+  res.json({ ok: true, message: 'User added.' });
 };
 
 /**
@@ -119,18 +73,12 @@ exports.handleLogin = async (req, res, next) => {
   const user = await UserModel.findOne({ email });
 
   if (!user) {
-    console.log('User does not exist!');
-    res.json({ error: true, message: 'user does not exist' });
+    res.json({ error: true, message: 'User does not exist.' });
   } else if (password != user.password) {
-    console.log("form password: " + password)
-    console.log("user password: " + user.password)
-    console.log('Wrong Password');
     res.json({ error: true, message: 'Wrong password' });
   } else if (!user.active) {
-    console.log('User is not verified yet');
     res.json({ error: true, message: 'User is not verified.' });
   } else {
-    console.log('Successful login');
     req.session.isAuth = true;
     req.session.username = user.name;
     res.json({ name: user.name });
@@ -147,11 +95,11 @@ exports.handleLogin = async (req, res, next) => {
 exports.handleLogout = (req, res, next) => {
   req.session.destroy((err) => {
     if (err) {
-      res.json({ error: true, message: 'user not found' });
+      console.log(err);
+      res.json({ error: true, message: 'User not found.' });
     }
-    console.log('logged out');
   });
-  res.end();
+  res.json({});
 };
 
 /**
@@ -174,7 +122,5 @@ exports.handleVerify = async (req, res, next) => {
     res.json({ error: true, message: 'user not found' });
     return;
   }
-  console.log('user verified!');
-  res.json({ ok: true, message: 'user verified' });
-  res.end();
+  res.json({ ok: true, message: 'User verified.' });
 };

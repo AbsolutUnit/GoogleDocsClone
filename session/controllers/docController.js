@@ -349,7 +349,6 @@ exports.handleDocPresence = (req, res, next) => {
   //   console.log("submitted presence to sharedb")
   // });
   res.json({});
-  res.end();
 };
 
 /**
@@ -365,5 +364,4 @@ exports.handleDocGet = (req, res, next) => {
   const converter = new QuillDeltaToHtmlConverter(deltaOps, {});
   const html = converter.convert();
   res.send(html);
-  res.end();
 };
