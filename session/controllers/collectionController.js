@@ -1,15 +1,15 @@
-const WebSocket = require('ws');
-const ReconnectingWebSocket = require('reconnecting-websocket');
+const WebSocket = require("ws");
+const ReconnectingWebSocket = require("reconnecting-websocket");
 const wsOptions = { WebSocket: WebSocket };
-const Client = require('sharedb/lib/client');
-const richText = require('rich-text');
+const Client = require("sharedb/lib/client");
+const richText = require("rich-text");
 
 const Connection = Client.Connection;
 Client.types.register(richText.type);
 
-const DocMapModel = require('../Models/Document');
+const DocMapModel = require("../Models/Document");
 
-const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions);
+const socket = new ReconnectingWebSocket("ws://localhost:8081", [], wsOptions);
 const connection = new Connection(socket);
 
 /**
@@ -21,16 +21,16 @@ const connection = new Connection(socket);
 exports.handleCreate = (req, res, next) => {
   const { name } = req.body;
   const docID = parseInt(Math.random() * 1000000000).toString();
-  let doc = connection.get('docs', docID);
+  let doc = connection.get("docs", docID);
   doc.fetch(async function (err) {
     if (err) throw err;
     // if id is already taken...
     while (doc.type !== null) {
       docID = parseInt(Math.random() * 1000000000).toString();
-      doc = connection.get('docs', docID);
+      doc = connection.get("docs", docID);
     }
     if (doc.type === null) {
-      doc.create([{ insert: '\n' }], 'rich-text');
+      doc.create([{ insert: "\n" }], "rich-text");
       let documentMap = new DocMapModel({
         docName: name,
         docID,
@@ -56,12 +56,12 @@ exports.handleCreate = (req, res, next) => {
  */
 exports.handleDelete = async (req, res, next) => {
   const { docid: docID } = req.body;
-  const doc = connection.get('docs', docID);
+  const doc = connection.get("docs", docID);
   doc.fetch(async function (err) {
     if (err) throw err;
     //console.log(doc);
     if (doc.type === null) {
-      res.json({ error: true, message: 'Could not delete document.' });
+      res.json({ error: true, message: "Could not delete document." });
       return;
     } else if (doc.type !== null) {
       doc.del(); // this or doc.del()
@@ -69,9 +69,10 @@ exports.handleDelete = async (req, res, next) => {
       DocMapModel.deleteOne({ docID }, function (err) {
         if (err) {
           console.log(err);
-          res.json({ error: true, message: 'Could not delete document.' });
+          res.json({ error: true, message: "Could not delete document." });
           return;
-        }      });
+        }
+      });
     }
   });
   res.json({});
@@ -95,12 +96,12 @@ exports.handleList = (req, res, next) => {
  * @returns none, but calls the callback
  */
 exports.getTopTen = (callback) => {
-  const query = connection.createFetchQuery('docs', {
-    $sort: { '_m.mtime': -1 },
+  const query = connection.createFetchQuery("docs", {
+    $sort: { "_m.mtime": -1 },
     $limit: 10,
   });
   let resList = [];
-  query.on('ready', async function () {
+  query.on("ready", async function () {
     let docList = query.results;
     for (const doc of docList) {
       let name = await DocMapModel.findOne({ docID: doc.id });

@@ -1,9 +1,8 @@
-const Client = require('sharedb/lib/client');
-const richText = require('rich-text');
+const Client = require("sharedb/lib/client");
+const richText = require("rich-text");
 
-const collectionController = require('./collectionController');
+const collectionController = require("./collectionController");
 Client.types.register(richText.type);
-
 
 /**
  * Show the homepage. User will be logged in.
