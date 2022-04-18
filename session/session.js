@@ -61,7 +61,7 @@ app.use(
   })
 );
 app.use((req, res, next) => {
-  res.setHeader('X-CSE356', '61f9d48d3e92a433bf4fc893');
+  res.setHeader('X-CSE356', process.env["CSE_356_ID"]);
   next();
 });
 const isAuth = (req, res, next) => {

@@ -207,7 +207,6 @@ exports.handleDocConnect = (req, res, next) => {
   }
   // sse headers
   const headers = {
-    'X-CSE356': '61f9d48d3e92a433bf4fc893',
     'Access-Control-Allow-Origin': '*',
     'Content-Type': 'text/event-stream',
     'Connection': 'keep-alive',
@@ -316,7 +315,7 @@ exports.handleDocPresence = (req, res, next) => {
   };
 
   const headers = {
-    'X-CSE356': '61f9d48d3e92a433bf4fc893',
+    'X-CSE356': process.env["CSE_356_ID"],
     'Access-Control-Allow-Origin': '*',
     'Content-Type': 'text/event-stream',
     'Connection': 'keep-alive',
