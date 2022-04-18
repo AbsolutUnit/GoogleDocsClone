@@ -1,5 +1,5 @@
-const multer = require("multer");
-var path = require("path");
+const multer = require('multer');
+var path = require('path');
 
 //THESE ARE NOT PERSISTENT
 let pathMapping = new Map();
@@ -7,7 +7,7 @@ let mimeMapping = new Map();
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "/root/finaljs/session/uploads");
+    cb(null, '/root/finaljs/session/uploads');
   },
   filename: (req, file, cb) => {
     let mediaID = parseInt(Math.random() * 1000000000).toString();
@@ -26,9 +26,9 @@ exports.upload = multer({ storage });
 exports.handleUpload = (req, res, next) => {
   // console.log(req.file);
   let ext = req.file.filename;
-  ext = ext.split(".").pop();
-  if (ext != "png" && ext != "jpeg" && ext != "jpg") {
-    res.json({ error: true, message: "not correct ft" });
+  ext = ext.split('.').pop();
+  if (ext != 'png' && ext != 'jpeg' && ext != 'jpg') {
+    res.json({ error: true, message: 'not correct ft' });
   } else {
     pathMapping.set(path.parse(req.file.filename).name, req.file.path);
     mimeMapping.set(path.parse(req.file.filename).name, req.file.mimetype);
@@ -44,7 +44,7 @@ exports.handleUpload = (req, res, next) => {
 exports.handleAccess = (req, res, next) => {
   const mediaID = req.params.MEDIAID;
   let filePath = pathMapping.get(mediaID);
-  res.header("Content-Type", mimeMapping.get(mediaID));
+  res.header('Content-Type', mimeMapping.get(mediaID));
   res.sendFile(filePath, {}, function (err) {
     if (err) {
       console.log(err);

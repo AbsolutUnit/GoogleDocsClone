@@ -1,6 +1,6 @@
-const UserModel = require("../Models/User");
-const nodemailer = require("nodemailer");
-const process = require("process");
+const UserModel = require('../Models/User');
+const nodemailer = require('nodemailer');
+const process = require('process');
 
 /**
  * Send an email to a recipient for username, with key.
@@ -10,23 +10,23 @@ const process = require("process");
  * @param key the verification key to signup with.
  */
 async function sendMail(recipient, user, key) {
-  const host = process.env["SMTP_HOST"];
+  const host = process.env['SMTP_HOST'];
   const link = encodeURI(
     `http://${host}/users/verify/?key=${key}&name=${user}`
   );
   const transporter = nodemailer.createTransport({
-    service: "postfix",
+    service: 'postfix',
     host: host,
     port: 25,
     auth: {
-      user: process.env["SMTP_USER"],
-      pass: process.env["SMTP_PASS"],
+      user: process.env['SMTP_USER'],
+      pass: process.env['SMTP_PASS'],
     },
   });
   const mailOptions = {
-    from: `${process.env["SMTP_NAME"]} <${process.env["SMTP_NAME"]}@${process.env["SMTP_HOST"]}>`,
+    from: `${process.env['SMTP_NAME']} <${process.env['SMTP_NAME']}@${process.env['SMTP_HOST']}>`,
     to: recipient,
-    subject: "Doogle Gocs Verification Email",
+    subject: 'Doogle Gocs Verification Email',
     text: link,
   };
   transporter.sendMail(mailOptions, function (error, info) {
@@ -46,7 +46,7 @@ exports.handleAddUser = async (req, res) => {
   const { name, email, password } = req.body;
   let user = await UserModel.findOne({ name });
   if (user) {
-    res.json({ error: true, message: "Name already taken." });
+    res.json({ error: true, message: 'Name already taken.' });
     return;
   }
   const key = parseInt(Math.random() * 1000000000);
@@ -62,7 +62,7 @@ exports.handleAddUser = async (req, res) => {
 
   //send email for verification, clicking link will hit endpoint
   sendMail(email, name, key);
-  res.json({ ok: true, message: "User added." });
+  res.json({ ok: true, message: 'User added.' });
 };
 
 /**
@@ -76,11 +76,11 @@ exports.handleLogin = async (req, res, next) => {
   const user = await UserModel.findOne({ email });
 
   if (!user) {
-    res.json({ error: true, message: "User does not exist." });
+    res.json({ error: true, message: 'User does not exist.' });
   } else if (password != user.password) {
-    res.json({ error: true, message: "Wrong password" });
+    res.json({ error: true, message: 'Wrong password' });
   } else if (!user.active) {
-    res.json({ error: true, message: "User is not verified." });
+    res.json({ error: true, message: 'User is not verified.' });
   } else {
     req.session.isAuth = true;
     req.session.username = user.name;
@@ -99,7 +99,7 @@ exports.handleLogout = (req, res, next) => {
   req.session.destroy((err) => {
     if (err) {
       console.log(err);
-      res.json({ error: true, message: "User not found." });
+      res.json({ error: true, message: 'User not found.' });
     }
   });
   res.json({});
@@ -115,15 +115,15 @@ exports.handleVerify = async (req, res, next) => {
   const key = req.query.key;
   const user = await UserModel.findOne({ name });
   if (!user) {
-    res.json({ error: true, message: "user not found" });
+    res.json({ error: true, message: 'user not found' });
     return;
   }
   if (key == user.key) {
     user.active = true;
     await user.save();
   } else {
-    res.json({ error: true, message: "user not found" });
+    res.json({ error: true, message: 'user not found' });
     return;
   }
-  res.json({ ok: true, message: "User verified." });
+  res.json({ ok: true, message: 'User verified.' });
 };

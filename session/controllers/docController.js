@@ -1,18 +1,18 @@
 //const connection = require('session').connection;
-const WebSocket = require("ws");
-const ReconnectingWebSocket = require("reconnecting-websocket");
+const WebSocket = require('ws');
+const ReconnectingWebSocket = require('reconnecting-websocket');
 const wsOptions = { WebSocket: WebSocket };
-const Client = require("sharedb/lib/client");
-const richText = require("rich-text");
+const Client = require('sharedb/lib/client');
+const richText = require('rich-text');
 const QuillDeltaToHtmlConverter =
-  require("quill-delta-to-html").QuillDeltaToHtmlConverter;
+  require('quill-delta-to-html').QuillDeltaToHtmlConverter;
 
 const Connection = Client.Connection;
 Client.types.register(richText.type);
 
-const DocMapModel = require("../Models/Document");
+const DocMapModel = require('../Models/Document');
 
-const socket = new ReconnectingWebSocket("ws://localhost:8081", [], wsOptions);
+const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions);
 const conn = new Connection(socket);
 
 const clientMapping = {};
@@ -195,8 +195,8 @@ exports.handleDocConnect = (req, res, next) => {
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
 
-  const doc = conn.get("docs", docID);
-  const presence = conn.getDocPresence("docs", docID);
+  const doc = conn.get('docs', docID);
+  const presence = conn.getDocPresence('docs', docID);
   const localPresence = presence.create(clientID);
   // set doc version in case new doc
   if (docVersionMapping[docID] === undefined) {
@@ -207,10 +207,10 @@ exports.handleDocConnect = (req, res, next) => {
   }
   // sse headers
   const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Content-Type": "text/event-stream",
-    Connection: "keep-alive",
-    "Cache-Control": "no-cache",
+    'Access-Control-Allow-Origin': '*',
+    'Content-Type': 'text/event-stream',
+    Connection: 'keep-alive',
+    'Cache-Control': 'no-cache',
   };
   res.writeHead(200, headers);
   // presence.subscribe(function(error) {
@@ -238,21 +238,21 @@ exports.handleDocConnect = (req, res, next) => {
   };
   doc.subscribe((err) => {
     if (err) res.json({ error: true, message: err });
-    console.log("doc.data in doc.subscribe: ", doc.data);
+    console.log('doc.data in doc.subscribe: ', doc.data);
     let data = `data: ${JSON.stringify({
       content: doc.data.ops,
       version: docVersion,
     })}\n\n`; // can switch bw doc.version and docVersion
-    console.log("event stream data (contents,version): ", data);
+    console.log('event stream data (contents,version): ', data);
     res.write(data);
-    doc.on("op", (op, source) => {
+    doc.on('op', (op, source) => {
       if (op.ops) op = op.ops;
-      console.log("transformed op: ", op);
+      console.log('transformed op: ', op);
       let data = `data: ${JSON.stringify(op)}\n\n`;
       if (source.clientID == clientID) {
         data = `data: ${JSON.stringify({ ack: source.op })}\n\n`;
       }
-      console.log("event stream data (transformed op): ", data);
+      console.log('event stream data (transformed op): ', data);
       res.write(data);
     });
   });
@@ -267,12 +267,12 @@ exports.handleDocConnect = (req, res, next) => {
  */
 exports.handleDocOp = (req, res, next) => {
   const docID = req.params.DOCID;
-  console.log("handleDocOP ", req.body);
+  console.log('handleDocOP ', req.body);
   const clientID = req.params.UID;
   const doc = clientMapping[clientID].doc;
-  console.log("req version: ", req.body.version);
-  console.log("(our) doc.version: ", docVersion);
-  console.log("(sharedb) doc.version: ", doc.version);
+  console.log('req version: ', req.body.version);
+  console.log('(our) doc.version: ', docVersion);
+  console.log('(sharedb) doc.version: ', doc.version);
   if (docVersionMapping[docID] === undefined) {
     docVersionMapping[docID] = 0;
     docVersion = 0;
@@ -281,20 +281,20 @@ exports.handleDocOp = (req, res, next) => {
   }
   if (req.body.version < docVersion) {
     // can switch bw doc.version and docVersion
-    res.send(`${JSON.stringify({ status: "retry" })}`);
+    res.send(`${JSON.stringify({ status: 'retry' })}`);
     return;
   }
-  console.log("Submitting Op");
+  console.log('Submitting Op');
   const source = {
     clientID: clientID,
     op: req.body.op,
   };
   doc.submitOp(req.body.op, { source: source });
   docVersionMapping[docID] = docVersionMapping[docID] + 1;
-  console.log("After submit, doc.data: ", doc.data);
-  console.log("After submit, (our) doc version: ", docVersion);
-  console.log("After submit, (sharedb) doc version: ", doc.version);
-  res.send(`${JSON.stringify({ status: "ok" })}`);
+  console.log('After submit, doc.data: ', doc.data);
+  console.log('After submit, (our) doc version: ', docVersion);
+  console.log('After submit, (sharedb) doc version: ', doc.version);
+  res.send(`${JSON.stringify({ status: 'ok' })}`);
 };
 
 /**
@@ -316,11 +316,11 @@ exports.handleDocPresence = (req, res, next) => {
   };
 
   const headers = {
-    "X-CSE356": process.env["CSE_356_ID"],
-    "Access-Control-Allow-Origin": "*",
-    "Content-Type": "text/event-stream",
-    Connection: "keep-alive",
-    "Cache-Control": "no-cache",
+    'X-CSE356': process.env['CSE_356_ID'],
+    'Access-Control-Allow-Origin': '*',
+    'Content-Type': 'text/event-stream',
+    Connection: 'keep-alive',
+    'Cache-Control': 'no-cache',
   };
   // super hacky: just go thru clients and echo presence back
   for (let client in clientMapping) {
@@ -330,8 +330,8 @@ exports.handleDocPresence = (req, res, next) => {
         cursor: { index: index, length: length, name: req.session.username },
       },
     })}\n\n`;
-    console.log("hacky presence ES data: ", data);
-    console.log("cursed res: ", client.res);
+    console.log('hacky presence ES data: ', data);
+    console.log('cursed res: ', client.res);
     clientMapping[client].res.write(data);
   }
   // let data = `data: ${JSON.stringify({
@@ -359,7 +359,7 @@ exports.handleDocPresence = (req, res, next) => {
 exports.handleDocGet = (req, res, next) => {
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
-  const doc = conn.get("docs", docID);
+  const doc = conn.get('docs', docID);
   const deltaOps = doc.data.ops;
   const converter = new QuillDeltaToHtmlConverter(deltaOps, {});
   const html = converter.convert();

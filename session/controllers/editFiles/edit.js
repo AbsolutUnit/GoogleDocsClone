@@ -1,18 +1,18 @@
-Quill.register("modules/cursors", QuillCursors);
-const quill = new Quill("editor", {
-  theme: "snow",
+Quill.register('modules/cursors', QuillCursors);
+const quill = new Quill('editor', {
+  theme: 'snow',
   modules: {
     cursors: true,
   },
 });
-quill.on("text-change", handleUpdate);
-quill.on("selection-change", handleSendPosition);
+quill.on('text-change', handleUpdate);
+quill.on('selection-change', handleSendPosition);
 
 function generateId() {
   return DataTransfer.now();
 }
 
-const ip = "localhost:8080";
+const ip = 'localhost:8080';
 const userId = generateId();
 var clientVersion = 0;
 var deltaQueue = [];
@@ -20,7 +20,7 @@ let ack = false;
 const eventSource = new EventSource(
   `${ip}/doc/connect/${documentId}/${userId}`
 );
-const cursors = quill.getModule("cursors");
+const cursors = quill.getModule('cursors');
 
 async function flushQueue() {
   while (true) {
@@ -29,7 +29,7 @@ async function flushQueue() {
       let retry = false;
       let ok = false;
       fetch(`${ip}/doc/op/${documentId}/${userId}`, {
-        method: "POST",
+        method: 'POST',
         body: JSON.stringify({
           version: clientVersion,
           op: currentOp.op,
@@ -37,9 +37,9 @@ async function flushQueue() {
       }).then((res) => {
         res.json().then((result) => {
           let status = result.status;
-          if (status === "ok") {
+          if (status === 'ok') {
             ok = true;
-          } else if (status === "retry") {
+          } else if (status === 'retry') {
             retry = true;
           }
         });
@@ -50,7 +50,7 @@ async function flushQueue() {
       } else if (retry) {
         const currVersion = clientVersion;
         while (currVersion == clientVersion) {
-          console.log("waiting");
+          console.log('waiting');
         }
       }
     }
@@ -67,7 +67,7 @@ function handleUpdate(delta) {
 function handleSendPosition(range) {
   if (range) {
     fetch(`${ip}/doc/presence/${documentId}/${userId}`, {
-      method: "POST",
+      method: 'POST',
       body: JSON.stringify({
         index: range.index,
         length: range.length,

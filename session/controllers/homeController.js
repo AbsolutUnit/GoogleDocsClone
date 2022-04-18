@@ -1,7 +1,7 @@
-const Client = require("sharedb/lib/client");
-const richText = require("rich-text");
+const Client = require('sharedb/lib/client');
+const richText = require('rich-text');
 
-const collectionController = require("./collectionController");
+const collectionController = require('./collectionController');
 Client.types.register(richText.type);
 
 /**
@@ -31,7 +31,7 @@ exports.handleHome = (req, res, next) => {
                     });
 
                     document.getElementById("logout").addEventListener("click", function () {
-                        fetch("http://${process.env["HOST"]}/users/logout", {
+                        fetch("http://${process.env['HOST']}/users/logout", {
                             method: "POST"
                         });
                     });
