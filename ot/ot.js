@@ -1,3 +1,4 @@
+require('dotenv').config()
 var http = require('http');
 var express = require('express');
 var ShareDB = require('sharedb');
@@ -5,8 +6,7 @@ var richText = require('rich-text');
 var WebSocket = require('ws');
 var WebSocketJSONStream = require('@teamwork/websocket-json-stream');
 
-const mongoURI =
-  'mongodb+srv://kevinchao:fJkTywtN4BmDnL1x@cluster0.28ur3.mongodb.net/sessions?retryWrites=true&w=majority';
+const mongoURI = process.env["MONGO_URI"];
 
 const db = require('sharedb-mongo')(mongoURI);
 

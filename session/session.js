@@ -19,8 +19,7 @@ const docController = require('./controllers/docController');
 const homeController = require('./controllers/homeController');
 
 // db setup
-const mongoURI =
-  'mongodb+srv://kevinchao:fJkTywtN4BmDnL1x@cluster0.28ur3.mongodb.net/sessions?retryWrites=true&w=majority';
+const mongoURI = process.env["MONGO_URI"];
 mongoose
   .connect(mongoURI, {
     useNewURLParser: true,
