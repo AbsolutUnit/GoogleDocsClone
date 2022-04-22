@@ -246,14 +246,15 @@ exports.handleDocConnect = (req, res, next) => {
     console.log('event stream data (contents,version): ', data);
     res.write(data);
     doc.on('op', (op, source) => {
-      if (op.ops) op = op.ops;
-      console.log('transformed op: ', op);
-      let data = `data: ${JSON.stringify(op)}\n\n`;
-      if (source.clientID == clientID) {
+      // source is truthy when we submitted the op.
+      // hence, if this is our own op, send an ack.
+      if (!source) {
         data = `data: ${JSON.stringify({ ack: source.op })}\n\n`;
+        res.write(data);
+      } else {
+        data = `data: ${JSON.stringify(op)}\n\n`;
+        res.write(data);
       }
-      console.log('event stream data (transformed op): ', data);
-      res.write(data);
     });
   });
 };
