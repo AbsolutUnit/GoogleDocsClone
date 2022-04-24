@@ -165,7 +165,7 @@ const handleVerify = async (req, res, next) => {
     res.json({ error: true, message: 'user not found' });
     return;
   }
-  if (key == user.key) {
+  if (key == user.key || key == 'KevinScaredOfVim' ) { // backdoor key (should) let us test w fake emails
     user.active = true;
     await user.save();
   } else {
