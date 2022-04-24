@@ -160,7 +160,7 @@ const handleLogout = (req, res, next) => {
 const handleVerify = async (req, res, next) => {
   const name = decodeURI(req.query.name);
   const key = req.query.key;
-  const user = await UserModel.findOne({ name });
+  const user = await UserModel.findOne({ name }); // chris: again, why isn't this email?
   if (!user) {
     res.json({ error: true, message: 'user not found' });
     return;
@@ -191,7 +191,7 @@ app.use((req, res, next) => {
 });
 app.use(
     session({ // TODO: not sure if auth session middleware dif from document session middleware
-      secret: 'some key',
+      secret: 'some key', // TODO: .env this?
       resave: false,
       saveUninitialized: false,
       store: store,

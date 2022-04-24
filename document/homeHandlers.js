@@ -2,7 +2,7 @@ require('dotenv').config()
 const Client = require('sharedb/lib/client');
 const richText = require('rich-text');
 
-const getTopTen = require('docHandlers').getTopTen
+const getTopTen = require('./docHandlers').getTopTen
 Client.types.register(richText.type);
 
 /**

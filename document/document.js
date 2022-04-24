@@ -21,10 +21,10 @@ app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(
   session({
-    secret: 'some key',
+    secret: 'some key', // TODO: .env this?
     resave: false,
     saveUninitialized: false,
-    store: store,
+    // store: store, // don't think we need a session store for document side?
   })
 );
 app.use((req, res, next) => {
