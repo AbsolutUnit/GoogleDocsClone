@@ -1,24 +1,30 @@
-//const connection = require('session').connection;
 const WebSocket = require('ws');
-const ReconnectingWebSocket = require('reconnecting-websocket');
-const wsOptions = { WebSocket: WebSocket };
-const Client = require('sharedb/lib/client');
 const richText = require('rich-text');
-const QuillDeltaToHtmlConverter =
-  require('quill-delta-to-html').QuillDeltaToHtmlConverter;
+const QuillDeltaToHtmlConverter = require('quill-delta-to-html').QuillDeltaToHtmlConverter;
+const ShareDB = require('sharedb');
+var WebSocketJSONStream = require('@teamwork/websocket-json-stream');
 
-const Connection = Client.Connection;
-Client.types.register(richText.type);
+// sharedb server set up
+const mongoURI = process.env["MONGO_URI"];
+const db = require('sharedb-mongo')(mongoURI);
+ShareDB.types.register(richText.type);
+const backend = new ShareDB({
+  db: db,
+  presence: true,
+  doNotForwardSendPresenceErrorsToClient: true,
+});
+const wss = new WebSocket.Server({ port: 8081 });
+wss.on('connection', function (ws) {
+  var stream = new WebSocketJSONStream(ws);
+  backend.listen(stream);
+  console.log("ShareDB listening on 8081")
+});
+const connection = backend.connect();
 
-const DocMapModel = require('../Models/Document');
-
-const socket = new ReconnectingWebSocket('ws://localhost:8081', [], wsOptions);
-const conn = new Connection(socket);
-
+// custom data structures
 const clientMapping = {};
 const docVersionMapping = {};
 var docVersion = 0;
-//also do user name mapping to ???, to attach name to cursor SSE response
 
 /**
  * Show the UI for editing a document: /doc/edit/:documentId
@@ -194,9 +200,8 @@ exports.handleDocEdit = (req, res, next) => {
 exports.handleDocConnect = (req, res, next) => {
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
-
-  const doc = conn.get('docs', docID);
-  const presence = conn.getDocPresence('docs', docID);
+  const doc = connection.get('docs', docID);
+  const presence = connection.getDocPresence('docs', docID);
   const localPresence = presence.create(clientID);
   // set doc version in case new doc
   if (docVersionMapping[docID] === undefined) {
@@ -209,33 +214,18 @@ exports.handleDocConnect = (req, res, next) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Content-Type': 'text/event-stream',
-    Connection: 'keep-alive',
+    'Connection': 'keep-alive',
     'Cache-Control': 'no-cache',
   };
   res.writeHead(200, headers);
-  // presence.subscribe(function(error) {
-  //   if (error) throw error;
-  // });
-  // presence.on('receive', (id, val) => {
-  //   const { index, length } = val; // no idea what val's shape is
-  //   console.log("Presence object: " + val);
-  //   let data = `data: ${JSON.stringify({
-  //     presence: {
-  //       id: id,
-  //       cursor: { index: index, length: length, name: req.session.username },
-  //     }
-  //   })}`;
-  //   console.log("Session Name: " + req.session.username);
-  //   res.write(data);
-  //   console.log('completed');
-  // });
-  // store new client
+  // add client to our jank ass data structure
   clientMapping[clientID] = {
     doc: doc,
     presence: localPresence,
-    res: res,
+    // res: res, // for satanic presence hack
     name: req.session.username,
   };
+  // subscribe to doc and listen for transformed ops
   doc.subscribe((err) => {
     if (err) res.json({ error: true, message: err });
     console.log('doc.data in doc.subscribe: ', doc.data);
@@ -246,9 +236,9 @@ exports.handleDocConnect = (req, res, next) => {
     console.log('event stream data (contents,version): ', data);
     res.write(data);
     doc.on('op', (op, source) => {
-      // source is truthy when we submitted the op.
-      // hence, if this is our own op, send an ack.
-      if (!source) {
+      if (op.ops) op = op.ops // because sharedb is stupid
+      let data = `data: ${JSON.stringify(op)}\n\n`;
+      if (source.clientID == clientID) {
         data = `data: ${JSON.stringify({ ack: source.op })}\n\n`;
         res.write(data);
       } else {
@@ -256,6 +246,15 @@ exports.handleDocConnect = (req, res, next) => {
         res.write(data);
       }
     });
+  });
+  // handle presence updates from sharedb
+  presence.subscribe()
+  backend.use('sendPresence', (context, next) => {
+    // check presence id matches docID
+    console.log('context.presence.d: ', context.presence.d) // p sure .d is docID, need to find out tho
+    if (context.presence.d !== docID) return 
+    let data = `data: ${JSON.stringify({presence: {id: context.presence.id, cursor: context.presence.p }})}\n\n`
+    res.write(data)
   });
 };
 
@@ -306,49 +305,20 @@ exports.handleDocOp = (req, res, next) => {
  * @returns req.json: {}
  * */
 exports.handleDocPresence = (req, res, next) => {
+  // no longer doing hacky presence business
+  // but if necessary feel like we can go back to it
+  // slim chance Ferdman makes presence grading stricter
   const { index, length } = req.body;
-  const docID = req.params.DOCID;
   const clientID = req.params.UID;
-  const doc = clientMapping[clientID].doc;
-
+  const localPresence = clientMapping[clientID].presence
   const range = {
     index,
     length,
   };
-
-  const headers = {
-    'X-CSE356': process.env['CSE_356_ID'],
-    'Access-Control-Allow-Origin': '*',
-    'Content-Type': 'text/event-stream',
-    Connection: 'keep-alive',
-    'Cache-Control': 'no-cache',
-  };
-  // super hacky: just go thru clients and echo presence back
-  for (let client in clientMapping) {
-    const data = `data: ${JSON.stringify({
-      presence: {
-        id: clientID,
-        cursor: { index: index, length: length, name: req.session.username },
-      },
-    })}\n\n`;
-    console.log('hacky presence ES data: ', data);
-    console.log('cursed res: ', client.res);
-    clientMapping[client].res.write(data);
-  }
-  // let data = `data: ${JSON.stringify({
-  //   presence: {
-  //     id: clientID,
-  //     cursor: { index: index, length: length, name: req.session.username },
-  //   }
-  // })}`;
-  // console.log("Session Name: " + req.session.username);
-  // res.write(data);
-
-  // console.log("localPresence obj before submitting to localPresence: ", localPresence)
-  // localPresence.submit(range, function (err) {
-  //   if (err) throw err;
-  //   console.log("submitted presence to sharedb")
-  // });
+  localPresence.submit(range, function (err) {
+    if (err) throw err;
+    console.log("submitted presence to sharedb")
+  });
   res.json({});
 };
 
@@ -360,9 +330,108 @@ exports.handleDocPresence = (req, res, next) => {
 exports.handleDocGet = (req, res, next) => {
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
-  const doc = conn.get('docs', docID);
+  const doc = connection.get('docs', docID);
   const deltaOps = doc.data.ops;
   const converter = new QuillDeltaToHtmlConverter(deltaOps, {});
   const html = converter.convert();
   res.send(html);
+};
+
+/**
+ * Create a new document (collection) to be edited.
+ *
+ * @param req.body { name }
+ * @returns req.json: {docId}
+ */
+ exports.handleCreate = (req, res, next) => {
+  const { name } = req.body;
+  const docID = parseInt(Math.random() * 1000000000).toString();
+  let doc = connection.get('docs', docID);
+  doc.fetch(async function (err) {
+    if (err) throw err;
+    // if id is already taken...
+    while (doc.type !== null) {
+      docID = parseInt(Math.random() * 1000000000).toString();
+      doc = connection.get('docs', docID);
+    }
+    if (doc.type === null) {
+      doc.create([{ insert: '\n' }], 'rich-text');
+      let documentMap = new DocMapModel({
+        docName: name,
+        docID,
+      });
+      await documentMap.save(function (err) {
+        if (err) {
+          console.log(err);
+          res.json({ error: true, message: "couldn't save the document map" });
+          return;
+        }
+      });
+    }
+  });
+
+  res.json({ docid: docID });
+};
+
+/**
+ * Delete a document from the server.
+ *
+ * @param req.body { docid }
+ * @returns res.json { status }
+ */
+exports.handleDelete = async (req, res, next) => {
+  const { docid: docID } = req.body;
+  const doc = connection.get('docs', docID);
+  doc.fetch(async function (err) {
+    if (err) throw err;
+    //console.log(doc);
+    if (doc.type === null) {
+      res.json({ error: true, message: 'Could not delete document.' });
+      return;
+    } else if (doc.type !== null) {
+      doc.del(); // this or doc.del()
+      console.log(`doc id: ${docID} deleted!`);
+      DocMapModel.deleteOne({ docID }, function (err) {
+        if (err) {
+          console.log(err);
+          res.json({ error: true, message: 'Could not delete document.' });
+          return;
+        }
+      });
+    }
+  });
+  res.json({});
+};
+
+/**
+ * Get the list of the ten most recently modified documents.
+ *
+ * @returns req.json [{ id, name }]
+ */
+exports.handleList = (req, res, next) => {
+  exports.getTopTen(function (resList) {
+    res.json(resList);
+  });
+};
+
+/**
+ * Get the top 10 most recently modified documents from ShareDB.
+ *
+ * @param callback
+ * @returns none, but calls the callback
+ */
+exports.getTopTen = (callback) => {
+  const query = connection.createFetchQuery('docs', {
+    $sort: { '_m.mtime': -1 },
+    $limit: 10,
+  });
+  let resList = [];
+  query.on('ready', async function () {
+    let docList = query.results;
+    for (const doc of docList) {
+      let name = await DocMapModel.findOne({ docID: doc.id });
+      resList.push({ id: doc.id, name: name.docName });
+    }
+    callback(resList);
+  });
 };

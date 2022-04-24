@@ -4,7 +4,7 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const session = require('express-session');
 
-const collectionsHandlers = require('./collectionHandlers')
+const collectionHandlers = require('./collectionHandlers')
 const docHandlers = require('./docHandlers')
 const homeHandlers = require('./homeHandlers')
 const mediaHandlers = require('./mediaHandlers')

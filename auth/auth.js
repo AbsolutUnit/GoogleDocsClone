@@ -2,40 +2,14 @@ require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const session = require('express-session');
 const nodemailer = require('nodemailer');
 const process = require('process');
 const MongoDBSession = require('connect-mongodb-session')(session);
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
-const app = express();
-app.use(cors());
-app.use((req, res, next) => {
-  console.log(req.url);
-  console.log(req.body);
-  next();
-});
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
-app.use(express.urlencoded({ extended: true }));
-app.use((req, res, next) => {
-    res.setHeader('X-CSE356', process.env['CSE_356_ID']);
-    next();
-});
-app.use(
-    session({
-      secret: 'some key',
-      resave: false,
-      saveUninitialized: false,
-      store: store,
-    })
-);
-
-app.post('/users/signup', handleAddUser);
-app.post('/users/login', handleLogin);
-app.post('/users/logout', handleLogout);
-app.get('/users/verify', handleVerify);
-
+// db setup
 const mongoURI = process.env["MONGO_URI"];
 mongoose
   .connect(mongoURI, {
@@ -199,3 +173,31 @@ const handleVerify = async (req, res, next) => {
   }
   res.json({ ok: true, message: 'User verified.' });
 };
+
+const app = express();
+app.use(cors());
+app.use((req, res, next) => {
+  console.log(req.url);
+  console.log(req.body);
+  next();
+});
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+app.use(express.urlencoded({ extended: true }));
+app.use((req, res, next) => {
+    res.setHeader('X-CSE356', process.env['CSE_356_ID']);
+    next();
+});
+app.use(
+    session({ // TODO: not sure if auth session middleware dif from document session middleware
+      secret: 'some key',
+      resave: false,
+      saveUninitialized: false,
+      store: store,
+    })
+);
+
+app.post('/users/signup', handleAddUser);
+app.post('/users/login', handleLogin);
+app.post('/users/logout', handleLogout);
+app.get('/users/verify', handleVerify);
