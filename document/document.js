@@ -4,7 +4,6 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const session = require('express-session');
 
-const collectionHandlers = require('./collectionHandlers')
 const docHandlers = require('./docHandlers')
 const homeHandlers = require('./homeHandlers')
 const mediaHandlers = require('./mediaHandlers')
@@ -46,9 +45,9 @@ const isAuth = (req, res, next) => {
 app.get('/', (req, res) => {
     res.sendFile('/root/finaljs/static/login.html');
   });
-  app.post('/collection/create', isAuth, collectionHandlers.handleCreate);
-  app.post('/collection/delete', isAuth, collectionHandlers.handleDelete);
-  app.get('/collection/list', isAuth, collectionHandlers.handleList);
+  app.post('/collection/create', isAuth, docHandlers.handleCreate);
+  app.post('/collection/delete', isAuth, docHandlers.handleDelete);
+  app.get('/collection/list', isAuth, docHandlers.handleList);
   app.post(
     '/media/upload/',
     isAuth,

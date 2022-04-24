@@ -71,7 +71,7 @@ async function sendMail(recipient, user, key) { // chris: why is this async?
     },
   });
   const mailOptions = {
-    from: `${process.env['SMTP_NAME']} <${process.env['SMTP_NAME']}@${process.env['SMTP_HOST']}>`,
+    from: `${process.env['SMTP_NAME']}@${process.env['SMTP_HOST']}`,
     to: recipient,
     subject: 'Doogle Gocs Verification Email',
     text: link,

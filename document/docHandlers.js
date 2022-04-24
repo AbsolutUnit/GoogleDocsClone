@@ -1,3 +1,4 @@
+require('dotenv').config();
 const WebSocket = require('ws');
 const richText = require('rich-text');
 const QuillDeltaToHtmlConverter = require('quill-delta-to-html').QuillDeltaToHtmlConverter;
