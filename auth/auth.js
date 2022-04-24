@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const session = require('express-session');
 const nodemailer = require('nodemailer');
+const { v4: uuidv4 } = require('uuid');
 const process = require('process');
 const MongoDBSession = require('connect-mongodb-session')(session);
 const mongoose = require('mongoose');
@@ -55,7 +56,7 @@ const UserModel = mongoose.model('User', userSchema);
  * @param user the username of the email.
  * @param key the verification key to signup with.
  */
-async function sendMail(recipient, user, key) {
+async function sendMail(recipient, user, key) { // chris: why is this async?
   const host = process.env['SMTP_HOST'];
   const link = encodeURI(
     `http://${host}/users/verify/?key=${key}&name=${user}`
@@ -77,7 +78,7 @@ async function sendMail(recipient, user, key) {
   };
   transporter.sendMail(mailOptions, function (error, info) {
     if (error) {
-      console.log(error);
+      console.log('failed to send email: ', error);
     }
   });
 }
@@ -90,12 +91,12 @@ async function sendMail(recipient, user, key) {
  */
 const handleAddUser = async (req, res) => {
   const { name, email, password } = req.body;
-  let user = await UserModel.findOne({ name });
+  let user = await UserModel.findOne({ name }); // chris: should this not be done by email instead???
   if (user) {
     res.json({ error: true, message: 'Name already taken.' });
     return;
   }
-  const key = parseInt(Math.random() * 1000000000);
+  const key = uuidv4();
   const active = false;
   user = new UserModel({
     name,
@@ -168,7 +169,7 @@ const handleVerify = async (req, res, next) => {
     user.active = true;
     await user.save();
   } else {
-    res.json({ error: true, message: 'user not found' });
+    res.json({ error: true, message: 'user key incorrect' });
     return;
   }
   res.json({ ok: true, message: 'User verified.' });

@@ -2,7 +2,8 @@ const WebSocket = require('ws');
 const richText = require('rich-text');
 const QuillDeltaToHtmlConverter = require('quill-delta-to-html').QuillDeltaToHtmlConverter;
 const ShareDB = require('sharedb');
-var WebSocketJSONStream = require('@teamwork/websocket-json-stream');
+const WebSocketJSONStream = require('@teamwork/websocket-json-stream');
+const { v4: uuidv4 } = require('uuid');
 
 // sharedb server set up
 const mongoURI = process.env["MONGO_URI"];
@@ -345,15 +346,10 @@ exports.handleDocGet = (req, res, next) => {
  */
  exports.handleCreate = (req, res, next) => {
   const { name } = req.body;
-  const docID = parseInt(Math.random() * 1000000000).toString();
+  const docID = uuidv4();
   let doc = connection.get('docs', docID);
   doc.fetch(async function (err) {
     if (err) throw err;
-    // if id is already taken...
-    while (doc.type !== null) {
-      docID = parseInt(Math.random() * 1000000000).toString();
-      doc = connection.get('docs', docID);
-    }
     if (doc.type === null) {
       doc.create([{ insert: '\n' }], 'rich-text');
       let documentMap = new DocMapModel({
