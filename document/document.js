@@ -45,25 +45,26 @@ const isAuth = (req, res, next) => {
 app.get('/', (req, res) => {
     res.sendFile('/root/finaljs/static/login.html');
   });
-  app.post('/collection/create', isAuth, docHandlers.handleCreate);
-  app.post('/collection/delete', isAuth, docHandlers.handleDelete);
-  app.get('/collection/list', isAuth, docHandlers.handleList);
-  app.post(
-    '/media/upload/',
-    isAuth,
-    mediaHandlers.upload.single('file'),
-    mediaHandlers.handleUpload
-  );
-  app.get('/media/access/:MEDIAID', isAuth, mediaHandlers.handleAccess);
-  app.get('/doc/edit/:DOCID', isAuth, docHandlers.handleDocEdit);
-  app.get('/doc/connect/:DOCID/:UID', isAuth, docHandlers.handleDocConnect);
-  app.post('/doc/op/:DOCID/:UID', isAuth, docHandlers.handleDocOp);
-  app.post('/doc/presence/:DOCID/:UID', isAuth, docHandlers.handleDocPresence);
-  app.get('/doc/get/:DOCID/:UID', isAuth, docHandlers.handleDocGet);
-  app.get('/home', isAuth, homeHandlers.handleHome);
-  app.use('/', express.static('/root/finaljs/static'));
-  // TODO: new endpoints
-  
-  app.listen(8080, () => {
-    console.log('Listening on port 8080');
-  });
+app.post('/collection/create', isAuth, docHandlers.handleCreate);
+app.post('/collection/delete', isAuth, docHandlers.handleDelete);
+app.get('/collection/list', isAuth, docHandlers.handleList);
+app.post(
+  '/media/upload/',
+  isAuth,
+  mediaHandlers.upload.single('file'),
+  mediaHandlers.handleUpload
+);
+app.get('/media/access/:MEDIAID', isAuth, mediaHandlers.handleAccess);
+app.get('/doc/edit/:DOCID', isAuth, docHandlers.handleDocEdit);
+app.get('/doc/connect/:DOCID/:UID', isAuth, docHandlers.handleDocConnect);
+app.post('/doc/op/:DOCID/:UID', isAuth, docHandlers.handleDocOp);
+app.post('/doc/presence/:DOCID/:UID', isAuth, docHandlers.handleDocPresence);
+app.get('/doc/get/:DOCID/:UID', isAuth, docHandlers.handleDocGet);
+app.get('/home', isAuth, homeHandlers.handleHome);
+app.use('/', express.static('/root/finaljs/static'));
+// TODO: new endpoints
+
+const port = 8080
+app.listen(port, () => {
+  console.log(`Listening on port ${port}`);
+});

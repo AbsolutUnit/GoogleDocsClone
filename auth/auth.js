@@ -202,3 +202,8 @@ app.post('/users/signup', handleAddUser);
 app.post('/users/login', handleLogin);
 app.post('/users/logout', handleLogout);
 app.get('/users/verify', handleVerify);
+
+const port = 8081
+app.listen(port, () => {
+  console.log(`Listening on port ${port}`);
+});

@@ -1,7 +1,8 @@
+require('dotenv').config()
 const Client = require('sharedb/lib/client');
 const richText = require('rich-text');
 
-const collectionController = require('./collectionController');
+const getTopTen = require('docHandlers').getTopTen
 Client.types.register(richText.type);
 
 /**
@@ -16,7 +17,7 @@ exports.handleHome = (req, res, next) => {
           x
         )}</a>`
     );
-  let hyperlinks = collectionController.getTopTen(hyperlinksFunc);
+  let hyperlinks = getTopTen(hyperlinksFunc);
 
   let homePage = `
         <!DOCTYPE html>
