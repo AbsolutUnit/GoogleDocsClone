@@ -271,7 +271,8 @@ exports.handleDocOp = (req, res, next) => {
   const docID = req.params.DOCID;
   console.log('handleDocOP ', req.body);
   const clientID = req.params.UID;
-  const doc = clientMapping[clientID].doc;
+  // const doc = clientMapping[clientID].doc;
+  const doc = connection.get('docs', docID);
   console.log('req version: ', req.body.version);
   console.log('(our) doc.version: ', docVersion);
   console.log('(sharedb) doc.version: ', doc.version);
