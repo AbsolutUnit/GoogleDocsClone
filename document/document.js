@@ -3,10 +3,28 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const session = require('express-session');
+const MongoDBSession = require('connect-mongodb-session')(session);
+const mongoose = require('mongoose');
 
 const docHandlers = require('./docHandlers')
 const homeHandlers = require('./homeHandlers')
 const mediaHandlers = require('./mediaHandlers')
+
+// session db setup TODO: THIS WILL NOT WORK WHEN SCALED OUT
+const mongoURI = process.env["MONGO_URI"];
+mongoose
+  .connect(mongoURI, {
+    useNewURLParser: true,
+    //useCreateIndex: true,
+    useUnifiedTopology: true,
+  })
+  .then((res) => {
+    console.log('MongoDB connected');
+  });
+const store = new MongoDBSession({
+  uri: mongoURI,
+  collection: 'users', // exact same session store as auth service!
+});
 
 // server setup & middleware
 const app = express();
@@ -24,7 +42,7 @@ app.use(
     secret: 'some key', // TODO: .env this?
     resave: false,
     saveUninitialized: false,
-    // store: store, // don't think we need a session store for document side?
+    store: store, 
   })
 );
 app.use((req, res, next) => {
