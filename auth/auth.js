@@ -182,7 +182,23 @@ app.post('/users/login', handleLogin);
 app.post('/users/logout', handleLogout);
 app.get('/users/verify', handleVerify);
 
-const port = 8082
+var httpProxy = require('http-proxy');
+var proxy = httpProxy.createProxyServer();
+function documentProxy(req, res) {
+  if (req.session.isAuth) {
+    console.log("Redirecting to document server");
+    proxy.web(req, res, {target: process.env["DOCUMENT_URL"]});
+  } else {
+    console.log("Unauthenticated.");
+  }
+}
+app.all('/doc/*', documentProxy);
+app.all('/media/*', documentProxy);
+app.all('/collection/*', documentProxy);
+app.all('/index/*', documentProxy);
+app.all('/', documentProxy);
+
+const port = 8080
 app.listen(port, () => {
   console.log(`Listening on port ${port}`);
 });
