@@ -8,7 +8,6 @@ const { v4: uuidv4 } = require('uuid');
 const process = require('process');
 const MongoDBSession = require('connect-mongodb-session')(session);
 const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
 
 // db setup
 const mongoURI = process.env["MONGO_URI"];
@@ -25,29 +24,7 @@ const store = new MongoDBSession({
   uri: mongoURI,
   collection: 'users',
 });
-const userSchema = new Schema({
-    name: {
-      type: String,
-      required: true,
-    },
-    password: {
-      type: String,
-      required: true,
-    },
-    email: {
-      type: String,
-      required: true,
-    },
-    active: {
-      type: Boolean,
-      required: true,
-    },
-    key: {
-      type: String,
-      required: true,
-    },
-});
-const UserModel = mongoose.model('User', userSchema);
+const UserModel = require('./models/User');
 
 /**
  * Send an email to a recipient for username, with key.

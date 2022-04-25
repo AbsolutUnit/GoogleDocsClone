@@ -6,7 +6,8 @@ const ShareDB = require('sharedb');
 const WebSocketJSONStream = require('@teamwork/websocket-json-stream');
 const { v4: uuidv4 } = require('uuid');
 
-// sharedb server set up
+const DocMapModel = require('./models/Document');
+
 const mongoURI = process.env["MONGO_URI"];
 const db = require('sharedb-mongo')(mongoURI);
 ShareDB.types.register(richText.type);
@@ -347,7 +348,7 @@ exports.handleDocGet = (req, res, next) => {
  * @returns req.json: {docId}
  */
  exports.handleCreate = (req, res, next) => {
-  const { name } = req.body;
+  const { name: name } = req.body;
   const docID = uuidv4();
   let doc = connection.get('docs', docID);
   doc.fetch(async function (err) {
