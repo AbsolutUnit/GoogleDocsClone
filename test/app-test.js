@@ -4,8 +4,8 @@ import { check, sleep } from 'k6';
 // if we want node modules here we need a bundler...
 
 export const options = {
-  vus: 50,
-  duration:'30s',
+  vus: 5,
+  duration:'2m',
   // stages: [
   //   { duration: '30s', target: 20 },
   //   { duration: '1m30s', target: 10 },
@@ -15,6 +15,7 @@ export const options = {
 
 /* init code, run once per VU */
 
+const numOps = 400
 const headers = {'Content-Type': 'application/json', 'Accept': '*/*'}
 
 // base urls
@@ -42,14 +43,8 @@ const presenceURL = docURL + '/presence'
 const getURL = docURL + '/get'
 
 
-export function setup() {
-  // can use k6 api in here, not in init code
-  // whatever we return (pls return an object) becomes data arg in default func
-  // this is NOT run for each VU! (and so idk why we would use this...)
-}
-
 // this function will loop for duration seconds (see options const)
-export default function (data) {
+export default function () {
 
   let name = `VU${exec.vu.idInTest}`
   let email = `VU${exec.vu.idInTest}@fake.com`
@@ -70,8 +65,28 @@ export default function (data) {
   sleep(1)
   res = http.post(loginURL, JSON.stringify({email: email, password: password}), {headers: headers})
   check(res, {'user logged in (2nd time)': (r) => JSON.parse(r.body).name == name && r.cookies })
+  sleep(1)
 
+  // doc creation and op submission sequence
+  res = http.post(createURL, JSON.stringify({name: name}), {headers: headers}) // every VU creates its own doc for now
+  check(res, {'docid returned': (r) => !!JSON.parse(r.body).docid })
+  let docID = JSON.parse(res.body).docid
+  let clientID = name
+  sleep(0.5)
+  let version = 0
+  for (let i=0; i < numOps; i++) {
+    sleep(0.05)
+    let op = [{ insert: `${name}&${i}` }]
+    res = http.post(`${opURL}/${docID}/${clientID}`, JSON.stringify({version: version, op: op}), {headers: headers})
+    while (JSON.parse(res.body).status === 'retry') {
+      version++
+      sleep(0.05)
+      res = http.post(`${opURL}/${docID}/${clientID}`, JSON.stringify({version: version, op: op}), {headers: headers})
+    }
+    check(res, { 'submitted op': (r) => JSON.parse(r.body).status === 'ok' })
+    if (JSON.parse(res.body).status === 'ok') version++
 
-  sleep(10);
+    // next get html or smth back for each document? (maybe console log snippet? check first few are VU1&1VU1&2VU1&3...)
+  }
 }
 // cookies will be cleared and TCP conns torn down before default func runs again
