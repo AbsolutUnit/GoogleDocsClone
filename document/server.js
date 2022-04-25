@@ -82,7 +82,7 @@ app.get('/home', isAuth, homeHandlers.handleHome);
 app.use('/', express.static('/root/finaljs/static'));
 // TODO: new endpoints
 
-const port = 8081
+const port = 8080
 app.listen(port, () => {
   console.log(`Listening on port ${port}`);
 });
