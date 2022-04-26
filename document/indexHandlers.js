@@ -129,16 +129,15 @@ exports.handleSearch = async (req, res) => {
       //res.end();
       //return;
       let endpointResponse = [];
-      hits = response.hits.hits;
+      let hits = response.hits.hits;
       let counter = 0;
       for (const hit of hits) {
         if (counter >= 10) break;
         //TODO: snippet does not exist at this point, just placeholder
-        endpointResponse.push( {
+        endpointResponse.push({
           hit.hit._source.id,
           hit.hit._source.name,
           hit.hit._source.snippet
-          //hit
 	    });
         counter++;
       }

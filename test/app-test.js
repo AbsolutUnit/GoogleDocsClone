@@ -15,7 +15,7 @@ export const options = {
 
 /* init code, run once per VU */
 
-const numOps = 400
+const numOps = 50
 const headers = {'Content-Type': 'application/json', 'Accept': '*/*'}
 
 // base urls
@@ -25,6 +25,7 @@ const collectionURL = baseURL + '/collection'
 const mediaURL = baseURL + '/media'
 const docURL = baseURL + '/doc'
 const homeURL = baseURL + '/home'
+const indexURL = baseURL + '/index'
 // auth service endpoints
 const signupURL = usersURL + '/signup'
 const verifyURL = usersURL + '/verify'
@@ -41,6 +42,8 @@ const connectURL = docURL + '/connect'
 const opURL = docURL + '/op'
 const presenceURL = docURL + '/presence'
 const getURL = docURL + '/get'
+const searchURL = indexURL + '/search'
+const suggestURL = indexURL + '/suggest'
 
 
 // this function will loop for duration seconds (see options const)
@@ -76,7 +79,7 @@ export default function () {
   let version = 0
   for (let i=0; i < numOps; i++) {
     sleep(0.05)
-    let op = [{ insert: `${name}&${i}` }]
+    let op = [{ insert: `${name}&${i} ` }]
     res = http.post(`${opURL}/${docID}/${clientID}`, JSON.stringify({version: version, op: op}), {headers: headers})
     while (JSON.parse(res.body).status === 'retry') {
       version++
@@ -85,8 +88,13 @@ export default function () {
     }
     check(res, { 'submitted op': (r) => JSON.parse(r.body).status === 'ok' })
     if (JSON.parse(res.body).status === 'ok') version++
-
-    // next get html or smth back for each document? (maybe console log snippet? check first few are VU1&1VU1&2VU1&3...)
   }
+
+  // index endpoints
+  res = http.get(`${searchURL}?q=VU`)
+  check(res, {'got search results': (r) => !!r.body}) // check nonempty body for now
+  console.log('search res.body ', res.body)
+  res = http.get(`${suggestURL}?q=VU&1`) // VU&10, VU&11, etc. all possible matches that should be in there (assumeing numOps big enuf)
+  check(res, {'got suggestions': (r) => !!r.body})
+  console.log('suggest res.body ', res.body)
 }
-// cookies will be cleared and TCP conns torn down before default func runs again
