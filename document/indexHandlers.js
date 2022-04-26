@@ -127,7 +127,6 @@ exports.handleSearch = async (req, res) => {
             snippet: highlight.text[0],
         });
       });
-      return res.json(endpointResponse);
     })
     .catch((err) => {
       return res.status(500).json({ message: 'Error' });
