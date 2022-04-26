@@ -16,11 +16,11 @@ const backend = new ShareDB({
   presence: true,
   doNotForwardSendPresenceErrorsToClient: true,
 });
-const wss = new WebSocket.Server({ port: 8081 });
+const wss = new WebSocket.Server({ port: 8082 });
 wss.on('connection', function (ws) {
   var stream = new WebSocketJSONStream(ws);
   backend.listen(stream);
-  console.log("ShareDB listening on 8081")
+  console.log("ShareDB listening on 8082")
 });
 const connection = backend.connect();
 

@@ -9,6 +9,7 @@ const mongoose = require('mongoose');
 const docHandlers = require('./docHandlers')
 const homeHandlers = require('./homeHandlers')
 const mediaHandlers = require('./mediaHandlers')
+const indexHandlers = require('./indexHandlers')
 
 // session db setup TODO: THIS WILL NOT WORK WHEN SCALED OUT
 const mongoURI = process.env["MONGO_URI"];
@@ -49,40 +50,32 @@ app.use((req, res, next) => {
   res.setHeader('X-CSE356', process.env['CSE_356_ID']);
   next();
 });
-const isAuth = (req, res, next) => {
-  //pass this middleware into any endpoint that requires authentication
-  if (req.session.isAuth) {
-    next();
-  } else {
-    console.log('not logged in!');
-    res.json({ error: true, message: 'not logged in' });
-  }
-};
 
 // endpoints
 app.get('/', (req, res) => {
     res.sendFile('/root/finaljs/static/login.html');
   });
-app.post('/collection/create', isAuth, docHandlers.handleCreate);
-app.post('/collection/delete', isAuth, docHandlers.handleDelete);
-app.get('/collection/list', isAuth, docHandlers.handleList);
+app.post('/collection/create', docHandlers.handleCreate);
+app.post('/collection/delete', docHandlers.handleDelete);
+app.get('/collection/list', docHandlers.handleList);
 app.post(
   '/media/upload/',
-  isAuth,
   mediaHandlers.upload.single('file'),
   mediaHandlers.handleUpload
 );
-app.get('/media/access/:MEDIAID', isAuth, mediaHandlers.handleAccess);
-app.get('/doc/edit/:DOCID', isAuth, docHandlers.handleDocEdit);
-app.get('/doc/connect/:DOCID/:UID', isAuth, docHandlers.handleDocConnect);
-app.post('/doc/op/:DOCID/:UID', isAuth, docHandlers.handleDocOp);
-app.post('/doc/presence/:DOCID/:UID', isAuth, docHandlers.handleDocPresence);
-app.get('/doc/get/:DOCID/:UID', isAuth, docHandlers.handleDocGet);
-app.get('/home', isAuth, homeHandlers.handleHome);
+app.get('/media/access/:MEDIAID', mediaHandlers.handleAccess);
+app.get('/doc/edit/:DOCID', docHandlers.handleDocEdit);
+app.get('/doc/connect/:DOCID/:UID', docHandlers.handleDocConnect);
+app.post('/doc/op/:DOCID/:UID', docHandlers.handleDocOp);
+app.post('/doc/presence/:DOCID/:UID', docHandlers.handleDocPresence);
+app.get('/doc/get/:DOCID/:UID', docHandlers.handleDocGet);
+app.get('/home', homeHandlers.handleHome);
+app.get('/index/search', indexHandlers.handleSearch)
+app.get('/index/suggest', indexHandlers.handleSuggest) 
 app.use('/', express.static('/root/finaljs/static'));
 // TODO: new endpoints
 
-const port = 8080
+const port = 8081
 app.listen(port, () => {
   console.log(`Listening on port ${port}`);
 });
