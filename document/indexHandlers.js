@@ -87,11 +87,10 @@ exports.updateDocument = async (text, id) => {
   await client.update({
     index: 'documents',
     id: id,
-    script: {
-      doc: {
-        //TODO: what is the difference between this and script
-        text: text,
-      },
+    doc: {
+      //TODO: what is the difference between this and script
+      text: text,
+      suggest: text.trim().split(' '),
     },
   });
 };
@@ -104,44 +103,30 @@ exports.handleSearch = async (req, res) => {
       index: 'documents',
       body: {
         query: {
-          match: { name: searchText.trim() },
+          multi_match: { 
+            query: searchText.trim(),
+            fields: ['name', 'text'],
+          }, 
         },
-        result_fields : {
-          title: {
-            snippet: {
-              size: 20, // readjustable (most likely good practice to calc based off size of searchText)
-              fallback: true
-            }
+        highlight: {
+          fields: {
+            text: {}
           },
-          description: {
-            raw: {
-              size: 200
-            },
-            snippet: {
-              size: 100
-            }
-          }
-        }
+        },
       },
     })
     .then((response) => {
-      //res.json(response);
-      //res.end();
-      //return;
       let endpointResponse = [];
-      hits = response.hits.hits;
+      const hits = response.hits.hits;
       let counter = 0;
-      for (const hit of hits) {
-        if (counter >= 10) break;
-        //TODO: snippet does not exist at this point, just placeholder
-        endpointResponse.push( {
-          hit.hit._source.id,
-          hit.hit._source.name,
-          hit.hit._source.snippet
-          //hit
-	    });
-        counter++;
-      }
+      response.hits.hits.forEach(hit => {
+        let {_source, highlight, ...params} = hit;
+        endpointResponse.push({
+            id: params._id, 
+            name: _source.name, 
+            snippet: highlight.text[0],
+        });
+      });
       return res.json(endpointResponse);
     })
     .catch((err) => {
@@ -154,7 +139,7 @@ exports.handleSearch = async (req, res) => {
 exports.handleSuggest = async (req, res) => {
   const suggestText = req.query.q;
   const response = await client.search({
-    index: 'products',
+      index: 'documents',
     body: {
       suggest: {
         gotsuggest: {
@@ -166,5 +151,10 @@ exports.handleSuggest = async (req, res) => {
       },
     },
   });
-  res.json([response.suggest.gotsuggest[0].options[0].text,]);
+  let suggestedWords = response.suggest.gotsuggest[0].options[0];
+  if(!suggestedWords) {
+    res.json([]); //alternatively throw an error
+  } else {
+    res.json([suggestedWords.text]); 
+  }
 };
