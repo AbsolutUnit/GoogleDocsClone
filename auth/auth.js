@@ -4,10 +4,11 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const session = require('express-session');
 const nodemailer = require('nodemailer');
-const { v4: uuidv4 } = require('uuid');
+const { uuid, v4: uuidv4 } = require('uuid');
 const process = require('process');
 const MongoDBSession = require('connect-mongodb-session')(session);
 const mongoose = require('mongoose');
+const httpProxy = require('http-proxy');
 
 // db setup
 const mongoURI = process.env["MONGO_URI"];
@@ -182,8 +183,8 @@ app.post('/users/login', handleLogin);
 app.post('/users/logout', handleLogout);
 app.get('/users/verify', handleVerify);
 
-var httpProxy = require('http-proxy');
-var proxy = httpProxy.createProxyServer();
+
+const proxy = httpProxy.createProxyServer();
 function documentProxy(req, res) {
   if (req.session.isAuth) {
     console.log("Redirecting to document server");
@@ -192,7 +193,7 @@ function documentProxy(req, res) {
     console.log("Unauthenticated.");
   }
 }
-app.all('/doc/*', documentProxy);
+app.all('/doc/*/:docID/*', documentProxy);
 app.all('/media/*', documentProxy);
 app.all('/collection/*', documentProxy);
 app.all('/index/*', documentProxy);
@@ -202,3 +203,8 @@ const port = 8080
 app.listen(port, () => {
   console.log(`Listening on port ${port}`);
 });
+
+// chris: I made docIDs uuids (strings), so if redirecting based on docID, can do smth like this:
+// const docID = req.params.docID
+// const dest = uuid.parse(docID).reduce((a,b) => a+b, 0) % numShards // which doc service to send to 
+// have a map of dest to ips (load ips from .env)
