@@ -106,9 +106,28 @@ exports.handleSearch = async (req, res) => {
         query: {
           match: { name: searchText.trim() },
         },
+        result_fields : {
+          title: {
+            snippet: {
+              size: 20, // readjustable (most likely good practice to calc based off size of searchText)
+              fallback: true
+            }
+          },
+          description: {
+            raw: {
+              size: 200
+            },
+            snippet: {
+              size: 100
+            }
+          }
+        }
       },
     })
     .then((response) => {
+      //res.json(response);
+      //res.end();
+      //return;
       let endpointResponse = [];
       hits = response.hits.hits;
       let counter = 0;
@@ -116,10 +135,10 @@ exports.handleSearch = async (req, res) => {
         if (counter >= 10) break;
         //TODO: snippet does not exist at this point, just placeholder
         endpointResponse.push( {
-          //hit._source.id,
-          //hit._source.name,
-          //hit._source.snippet
-          hit
+          hit.hit._source.id,
+          hit.hit._source.name,
+          hit.hit._source.snippet
+          //hit
 	    });
         counter++;
       }
@@ -147,5 +166,5 @@ exports.handleSuggest = async (req, res) => {
       },
     },
   });
-  res.json([response.suggest.gotsuggest[0].options[0].text,]); 
+  res.json([response.suggest.gotsuggest[0].options[0].text,]);
 };
