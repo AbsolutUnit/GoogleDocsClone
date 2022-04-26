@@ -2,10 +2,11 @@ require('dotenv').config();
 const WebSocket = require('ws');
 const richText = require('rich-text');
 const QuillDeltaToHtmlConverter = require('quill-delta-to-html').QuillDeltaToHtmlConverter;
+const { convert } = require('html-to-text');
 const ShareDB = require('sharedb');
 const WebSocketJSONStream = require('@teamwork/websocket-json-stream');
 const { v4: uuidv4 } = require('uuid');
-
+const indexHandlers = require('./indexHandlers')
 const DocMapModel = require('./models/Document');
 
 const mongoURI = process.env["MONGO_URI"];
@@ -259,6 +260,17 @@ exports.handleDocConnect = (req, res, next) => {
     let data = `data: ${JSON.stringify({presence: {id: context.presence.id, cursor: context.presence.p }})}\n\n`
     res.write(data)
   });
+  // if nothing is going on, update the index
+  doc.whenNothingPending(() => {
+    doc.fetch((err) => {
+    if (err) throw err
+    const deltaOps = doc.data.ops;
+    const converter = new QuillDeltaToHtmlConverter(deltaOps, {});
+    const html = converter.convert();
+    const text = convert(html)
+    indexHandlers.updateDocument(text, docID)
+    });
+  })
 };
 
 /**
@@ -295,9 +307,9 @@ exports.handleDocOp = (req, res, next) => {
   };
   doc.submitOp(req.body.op, { source: source });
   docVersionMapping[docID] = docVersionMapping[docID] + 1;
-  console.log('After submit, doc.data: ', doc.data);
-  console.log('After submit, (our) doc version: ', docVersion);
-  console.log('After submit, (sharedb) doc version: ', doc.version);
+  // console.log('After submit, doc.data: ', doc.data);
+  // console.log('After submit, (our) doc version: ', docVersion);
+  // console.log('After submit, (sharedb) doc version: ', doc.version);
   res.send(`${JSON.stringify({ status: 'ok' })}`);
 };
 
@@ -365,6 +377,16 @@ exports.handleDocGet = (req, res, next) => {
           res.json({ error: true, message: "couldn't save the document map" });
           return;
         }
+      });
+      // chris: contents -> html -> text for ES bc we are smooth brain
+      // think I have to call doc.fetch again to populate doc.data.ops?
+      doc.fetch((err) => {
+        if (err) throw err
+        const deltaOps = doc.data.ops;
+        const converter = new QuillDeltaToHtmlConverter(deltaOps, {});
+        const html = converter.convert();
+        const text = convert(html)
+        indexHandlers.addDocument(docID, name, text)
       });
     }
   });

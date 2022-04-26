@@ -27,6 +27,9 @@ const store = new MongoDBSession({
   collection: 'users', // exact same session store as auth service!
 });
 
+// create search index TODO: hope and pray idempotent
+indexHandlers.createIndex()
+
 // server setup & middleware
 const app = express();
 app.use(cors());
