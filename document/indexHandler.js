@@ -106,6 +106,22 @@ exports.handleSearch = async (req, res) => {
         query: {
           match: { name: searchText.trim() },
         },
+        result_fields : {
+          title: {
+            snippet: {
+              size: 20, // readjustable (most likely good practice to calc based off size of searchText)
+              fallback: true
+            }
+          },
+          description: {
+            raw: {
+              size: 200
+            },
+            snippet: {
+              size: 100
+            }
+          }
+        }
       },
     })
     .then((response) => {
@@ -147,5 +163,5 @@ exports.handleSuggest = async (req, res) => {
       },
     },
   });
-  res.json([response.suggest.gotsuggest[0].options[0].text,]); 
+  res.json([response.suggest.gotsuggest[0].options[0].text,]);
 };
