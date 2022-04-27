@@ -27,8 +27,12 @@ exports.deleteIndex = () => {
     client.indices.delete({index: 'documents' });
 }
 
-exports.createIndex = () => {
-    client.indices.create({
+exports.createIndex = async () => {
+    if (await client.indices.exists({index: 'documents'})) {
+        console.log("Elasticsearch index documents already exists");
+        return false;
+    }
+    return await client.indices.create({
     index: 'documents',
     settings: {
       analysis: {
