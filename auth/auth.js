@@ -1,6 +1,5 @@
 require('dotenv').config();
 const express = require('express');
-const bodyParser = require('body-parser');
 const cors = require('cors');
 const session = require('express-session');
 const nodemailer = require('nodemailer');
@@ -196,7 +195,7 @@ app.all('/index/*', documentProxy);
 app.all('/', documentProxy);
 
 // Next, parse the body - we don't parse if we are proxying, so this goes here.
-app.use("/users/*", bodyParser.json());
+app.use("/users/*", express.json({limit: 1000}));
 app.use("/users/*", express.urlencoded({ extended: true }));
 
 // Finally, the users routes.

@@ -1,6 +1,5 @@
 require('dotenv').config();
 const express = require('express');
-const bodyParser = require('body-parser');
 const cors = require('cors');
 const session = require('express-session');
 const MongoDBSession = require('connect-mongodb-session')(session);
@@ -37,7 +36,7 @@ app.use((req, res, next) => {
   console.log(req.url);
   next();
 });
-app.use(bodyParser.json());
+app.use(express.json({limit: 1000}));
 app.use((req, res, next) => {
   console.log(req.body);
   next();
