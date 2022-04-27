@@ -367,28 +367,18 @@ exports.handleDocGet = (req, res, next) => {
     if (err) throw err;
     if (doc.type === null) {
       doc.create([{ insert: '\n' }], 'rich-text');
+      indexHandlers.addDocument(docID, name, '\n')
       let documentMap = new DocMapModel({
         docName: name,
         docID,
       });
-      await documentMap.save(function (err) {
+      documentMap.save(function (err) {
         if (err) {
           console.log(err);
           res.json({ error: true, message: "couldn't save the document map" });
           return;
         }
       });
-      // chris: contents -> html -> text for ES bc we are smooth brain
-      // think I have to call doc.fetch again to populate doc.data.ops?
-      doc.fetch((err) => {
-        if (err) throw err
-        const deltaOps = doc.data.ops;
-        const converter = new QuillDeltaToHtmlConverter(deltaOps, {});
-        const html = converter.convert();
-        const text = convert(html)
-        indexHandlers.addDocument(docID, name, text)
-      });
-    }
   });
 
   res.json({ docid: docID });
