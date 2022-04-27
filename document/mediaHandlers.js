@@ -1,6 +1,6 @@
 const multer = require('multer');
 const path = require('path');
-const logger = require('./server').logger;
+const logger = require('winston')
 
 //THESE ARE NOT PERSISTENT
 let pathMapping = new Map();

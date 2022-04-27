@@ -1,5 +1,6 @@
 const { Client } = require('@elastic/elasticsearch');
-const logger = require('./server').logger;
+const logger = require('winston')
+
 const client = new Client({
   node: 'http://localhost:9200',
 });

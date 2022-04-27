@@ -4,24 +4,12 @@ const cors = require('cors');
 const session = require('express-session');
 const MongoDBSession = require('connect-mongodb-session')(session);
 const mongoose = require('mongoose');
-const winston = require('winston');
+const logger = require('./logger.js')
 
 const docHandlers = require('./docHandlers')
 const homeHandlers = require('./homeHandlers')
 const mediaHandlers = require('./mediaHandlers')
 const indexHandlers = require('./indexHandlers')
-
-// logger setup
-const logger = winston.createLogger({
-  level: process.env['LOGGER_LEVEL'] || 'debug',
-  silent: !!process.env['SILENCE_LOGS'] || false,
-  format: winston.format.simple(),
-  transports: [
-      new winston.transports.Console()
-  ]
-});
-logger.info('set up logger')
-exports.logger = logger
 
 // session db setup TODO: THIS WILL NOT WORK WHEN SCALED OUT
 const mongoURI = process.env["MONGO_URI"];
