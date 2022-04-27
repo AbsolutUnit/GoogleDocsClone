@@ -21,6 +21,7 @@ const logger = winston.createLogger({
   ]
 });
 logger.info('set up logger')
+exports.logger = logger
 
 // session db setup TODO: THIS WILL NOT WORK WHEN SCALED OUT
 const mongoURI = process.env["MONGO_URI"];

@@ -8,7 +8,7 @@ const WebSocketJSONStream = require('@teamwork/websocket-json-stream');
 const { v4: uuidv4 } = require('uuid');
 const indexHandlers = require('./indexHandlers')
 const DocMapModel = require('./models/Document');
-const winston = require('winston');
+const logger = require('./server').logger;
 
 const mongoURI = process.env["MONGO_URI"];
 const db = require('sharedb-mongo')(mongoURI);
