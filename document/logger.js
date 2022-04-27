@@ -1,12 +1,15 @@
-const winston = require('winston');
+const { format, loggers, transports } = require('winston')
 
-const logger = winston.createLogger({
+loggers.add('my-logger', {
   level: process.env['LOGGER_LEVEL'] || 'debug',
   silent: !!process.env['SILENCE_LOGS'] || false,
-  format: winston.format.simple(),
+  format: format.simple(),
   transports: [
-    new winston.transports.Console()
+    new transports.Console()
   ]
 });
 
-module.exports = logger
+require('./server.js')
+require('./docHandlers.js')
+require('./indexHandlers.js')
+require('./mediaHandlers.js')

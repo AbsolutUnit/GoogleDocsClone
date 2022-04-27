@@ -4,7 +4,8 @@ const cors = require('cors');
 const session = require('express-session');
 const MongoDBSession = require('connect-mongodb-session')(session);
 const mongoose = require('mongoose');
-const logger = require('./logger.js')
+const { loggers } = require('winston')
+const logger = loggers.get('my-logger')
 
 const docHandlers = require('./docHandlers')
 const homeHandlers = require('./homeHandlers')
