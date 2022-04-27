@@ -15,7 +15,7 @@ export const options = {
 
 /* init code, run once per VU */
 
-const numOps = 50
+const numOps = 100
 const headers = {'Content-Type': 'application/json', 'Accept': '*/*'}
 
 // base urls
@@ -44,6 +44,11 @@ const presenceURL = docURL + '/presence'
 const getURL = docURL + '/get'
 const searchURL = indexURL + '/search'
 const suggestURL = indexURL + '/suggest'
+
+const binFile = open('../uploads/image.png', 'b');
+const mediaData = {
+  file: http.file(binFile, 'image.png'),
+};
 
 
 // this function will loop for duration seconds (see options const)
@@ -88,6 +93,13 @@ export default function () {
     }
     check(res, { 'submitted op': (r) => JSON.parse(r.body).status === 'ok' })
     if (JSON.parse(res.body).status === 'ok') version++
+
+    // throw some media in there
+    if (!(i % 5)) {
+      res = http.post(uploadURL, mediaData)
+      check(res, { 'file uploaded': (r) => !!JSON.parse(r.body).mediaid})
+      sleep(0.05)
+    }
   }
 
   // index endpoints
