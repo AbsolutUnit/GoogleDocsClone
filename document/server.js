@@ -4,8 +4,7 @@ const cors = require('cors');
 const session = require('express-session');
 const MongoDBSession = require('connect-mongodb-session')(session);
 const mongoose = require('mongoose');
-const { loggers } = require('winston')
-const logger = loggers.get('my-logger')
+const { logger } = require('./logger')
 
 const docHandlers = require('./docHandlers')
 const homeHandlers = require('./homeHandlers')
@@ -59,7 +58,7 @@ app.use((req, res, next) => {
 
 // endpoints
 app.get('/', (req, res) => {
-    res.sendFile('/root/finaljs/static/login.html');
+    res.sendFile('/root/final/static/login.html');
   });
 app.post('/collection/create', docHandlers.handleCreate);
 app.post('/collection/delete', docHandlers.handleDelete);
