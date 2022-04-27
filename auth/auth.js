@@ -3,11 +3,23 @@ const express = require('express');
 const cors = require('cors');
 const session = require('express-session');
 const nodemailer = require('nodemailer');
-const { uuid, v4: uuidv4 } = require('uuid');
+const { v4: uuidv4 } = require('uuid');
 const process = require('process');
 const MongoDBSession = require('connect-mongodb-session')(session);
 const mongoose = require('mongoose');
 const httpProxy = require('http-proxy');
+const winston = require('winston');
+
+// logger setup
+const logger = winston.createLogger({
+  level: process.env['LOGGER_LEVEL'] || 'debug',
+  silent: !!process.env['SILENCE_LOGS'] || false,
+  format: winston.format.simple(),
+  transports: [
+      new winston.transports.Console()
+  ]
+});
+logger.info('set up logger')
 
 // db setup
 const mongoURI = process.env["MONGO_URI"];
@@ -18,7 +30,7 @@ mongoose
     useUnifiedTopology: true,
   })
   .then((res) => {
-    console.log('MongoDB connected');
+    logger.info('MongoDB connected');
   });
 const store = new MongoDBSession({
   uri: mongoURI,
@@ -55,7 +67,7 @@ async function sendMail(recipient, user, key) { // chris: why is this async?
   };
   transporter.sendMail(mailOptions, function (error, info) {
     if (error) {
-      console.log('failed to send email: ', error);
+      logger.info('failed to send email: ', error);
     }
   });
 }
@@ -122,7 +134,7 @@ const handleLogin = async (req, res, next) => {
 const handleLogout = (req, res, next) => {
   req.session.destroy((err) => {
     if (err) {
-      console.log(err);
+      logger.info(err);
       res.json({ error: true, message: 'User not found.' });
     }
   });
@@ -137,8 +149,8 @@ const handleLogout = (req, res, next) => {
 const handleVerify = async (req, res, next) => {
   const name = decodeURI(req.query.name);
   const key = req.query.key;
-  console.log('name', name)
-  console.log('key', key)
+  logger.info('name', name)
+  logger.info('key', key)
   const user = await UserModel.findOne({ name }); // chris: again, why isn't this email?
   if (!user) {
     res.json({ error: true, message: 'user not found' });
@@ -161,7 +173,7 @@ const app = express();
 app.use(cors());
 // Next, log the URL
 app.use((req, res, next) => {
-  console.log(req.url);
+  logger.info(req.url);
   next();
 });
 // Next, add the CSE 356 header.
@@ -182,10 +194,10 @@ app.use(
 const proxy = httpProxy.createProxyServer();
 function documentProxy(req, res) {
   if (req.session.isAuth) {
-    console.log("Redirecting to document server");
+    logger.info("Redirecting to document server");
     proxy.web(req, res, {target: process.env["DOCUMENT_URL"]});
   } else {
-    console.log("Unauthenticated.");
+    logger.info("Unauthenticated.");
   }
 }
 app.all('/doc/*', documentProxy);
@@ -206,7 +218,7 @@ app.get('/users/verify', handleVerify);
 
 const port = 8080
 app.listen(port, () => {
-  console.log(`Listening on port ${port}`);
+  logger.info(`Listening on port ${port}`);
 });
 
 // chris: I made docIDs uuids (strings), so if redirecting based on docID, can do smth like this:

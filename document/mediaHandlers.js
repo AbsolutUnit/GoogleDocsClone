@@ -1,5 +1,6 @@
 const multer = require('multer');
-var path = require('path');
+const path = require('path');
+const winston = require('winston');
 
 //THESE ARE NOT PERSISTENT
 let pathMapping = new Map();
@@ -23,7 +24,7 @@ exports.upload = multer({ storage });
  */
 exports.handleUpload = (req, res, next) => {
   let ext = req.file.filename.split('.').pop();
-  console.log(req.file);
+  logger.info(req.file);
   if (ext != 'png' && ext != 'jpeg' && ext != 'jpg' && ext != 'gif') {
     res.json({ error: true, message: 'not correct ft' });
   } else {
@@ -44,10 +45,10 @@ exports.handleAccess = (req, res, next) => {
   res.header('Content-Type', mimeMapping.get(mediaID));
   res.sendFile(filePath, {}, function (err) {
     if (err) {
-      console.log(err);
+      logger.info(err);
       res.json({ error: true, message: "couldn't send file" });
     } else {
-      console.log(`${filePath} sent!`);
+      logger.info(`${filePath} sent!`);
     }
   });
 };

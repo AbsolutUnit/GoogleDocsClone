@@ -4,11 +4,23 @@ const cors = require('cors');
 const session = require('express-session');
 const MongoDBSession = require('connect-mongodb-session')(session);
 const mongoose = require('mongoose');
+const winston = require('winston');
 
 const docHandlers = require('./docHandlers')
 const homeHandlers = require('./homeHandlers')
 const mediaHandlers = require('./mediaHandlers')
 const indexHandlers = require('./indexHandlers')
+
+// logger setup
+const logger = winston.createLogger({
+  level: process.env['LOGGER_LEVEL'] || 'debug',
+  silent: !!process.env['SILENCE_LOGS'] || false,
+  format: winston.format.simple(),
+  transports: [
+      new winston.transports.Console()
+  ]
+});
+logger.info('set up logger')
 
 // session db setup TODO: THIS WILL NOT WORK WHEN SCALED OUT
 const mongoURI = process.env["MONGO_URI"];
@@ -19,7 +31,7 @@ mongoose
     useUnifiedTopology: true,
   })
   .then((res) => {
-    console.log('MongoDB connected');
+    logger.info('MongoDB connected');
   });
 const store = new MongoDBSession({
   uri: mongoURI,
@@ -33,12 +45,12 @@ indexHandlers.createIndex()
 const app = express();
 app.use(cors());
 app.use((req, res, next) => {
-  console.log(req.url);
+  logger.info(req.url);
   next();
 });
 app.use(express.json({limit: "25mb" }));
 app.use((req, res, next) => {
-  console.log(req.body);
+  logger.info(req.body);
   next();
 });
 app.use(express.urlencoded({ extended: true }));
@@ -81,5 +93,5 @@ app.use('/', express.static('/root/finaljs/static'));
 
 const port = 8081
 app.listen(port, () => {
-  console.log(`Listening on port ${port}`);
+  logger.info(`Listening on port ${port}`);
 });

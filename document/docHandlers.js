@@ -8,6 +8,7 @@ const WebSocketJSONStream = require('@teamwork/websocket-json-stream');
 const { v4: uuidv4 } = require('uuid');
 const indexHandlers = require('./indexHandlers')
 const DocMapModel = require('./models/Document');
+const winston = require('winston');
 
 const mongoURI = process.env["MONGO_URI"];
 const db = require('sharedb-mongo')(mongoURI);
@@ -21,7 +22,7 @@ const wss = new WebSocket.Server({ port: 8082 });
 wss.on('connection', function (ws) {
   var stream = new WebSocketJSONStream(ws);
   backend.listen(stream);
-  console.log("ShareDB listening on 8082")
+  logger.info("ShareDB listening on 8082")
 });
 const connection = backend.connect();
 
@@ -232,12 +233,12 @@ exports.handleDocConnect = (req, res, next) => {
   // subscribe to doc and listen for transformed ops
   doc.subscribe((err) => {
     if (err) res.json({ error: true, message: err });
-    console.log('doc.data in doc.subscribe: ', doc.data);
+    logger.info('doc.data in doc.subscribe: ', doc.data);
     let data = `data: ${JSON.stringify({
       content: doc.data.ops,
       version: docVersion,
     })}\n\n`; // can switch bw doc.version and docVersion
-    console.log('event stream data (contents,version): ', data);
+    logger.info('event stream data (contents,version): ', data);
     res.write(data);
     doc.on('op', (op, source) => {
       if (op.ops) op = op.ops // because sharedb is stupid
@@ -255,7 +256,7 @@ exports.handleDocConnect = (req, res, next) => {
   presence.subscribe()
   backend.use('sendPresence', (context, next) => {
     // check presence id matches docID
-    console.log('context.presence.d: ', context.presence.d) // p sure .d is docID, need to find out tho
+    logger.info('context.presence.d: ', context.presence.d) // p sure .d is docID, need to find out tho
     if (context.presence.d !== docID) return 
     let data = `data: ${JSON.stringify({presence: {id: context.presence.id, cursor: context.presence.p }})}\n\n`
     res.write(data)
@@ -282,13 +283,13 @@ exports.handleDocConnect = (req, res, next) => {
  */
 exports.handleDocOp = (req, res, next) => {
   const docID = req.params.DOCID;
-  console.log('handleDocOP ', req.body);
+  logger.info('handleDocOP ', req.body);
   const clientID = req.params.UID;
   // const doc = clientMapping[clientID].doc;
   const doc = connection.get('docs', docID);
-  console.log('req version: ', req.body.version);
-  console.log('(our) doc.version: ', docVersion);
-  console.log('(sharedb) doc.version: ', doc.version);
+  logger.info('req version: ', req.body.version);
+  logger.info('(our) doc.version: ', docVersion);
+  logger.info('(sharedb) doc.version: ', doc.version);
   if (docVersionMapping[docID] === undefined) {
     docVersionMapping[docID] = 0;
     docVersion = 0;
@@ -300,16 +301,16 @@ exports.handleDocOp = (req, res, next) => {
     res.send(`${JSON.stringify({ status: 'retry' })}`);
     return;
   }
-  console.log('Submitting Op');
+  logger.info('Submitting Op');
   const source = {
     clientID: clientID,
     op: req.body.op,
   };
   doc.submitOp(req.body.op, { source: source });
   docVersionMapping[docID] = docVersionMapping[docID] + 1;
-  // console.log('After submit, doc.data: ', doc.data);
-  // console.log('After submit, (our) doc version: ', docVersion);
-  // console.log('After submit, (sharedb) doc version: ', doc.version);
+  // logger.info('After submit, doc.data: ', doc.data);
+  // logger.info('After submit, (our) doc version: ', docVersion);
+  // logger.info('After submit, (sharedb) doc version: ', doc.version);
   res.send(`${JSON.stringify({ status: 'ok' })}`);
 };
 
@@ -333,7 +334,7 @@ exports.handleDocPresence = (req, res, next) => {
   };
   localPresence.submit(range, function (err) {
     if (err) throw err;
-    console.log("submitted presence to sharedb")
+    logger.info("submitted presence to sharedb")
   });
   res.json({});
 };
@@ -374,7 +375,7 @@ exports.handleDocGet = (req, res, next) => {
       });
       documentMap.save(function (err) {
         if (err) {
-          console.log(err);
+          logger.info(err);
           res.json({ error: true, message: "couldn't save the document map" });
           return;
         }
@@ -395,16 +396,16 @@ exports.handleDelete = async (req, res, next) => {
   const doc = connection.get('docs', docID);
   doc.fetch(async function (err) {
     if (err) throw err;
-    //console.log(doc);
+    //logger.info(doc);
     if (doc.type === null) {
       res.json({ error: true, message: 'Could not delete document.' });
       return;
     } else if (doc.type !== null) {
       doc.del(); // this or doc.del()
-      console.log(`doc id: ${docID} deleted!`);
+      logger.info(`doc id: ${docID} deleted!`);
       DocMapModel.deleteOne({ docID }, function (err) {
         if (err) {
-          console.log(err);
+          logger.info(err);
           res.json({ error: true, message: 'Could not delete document.' });
           return;
         }

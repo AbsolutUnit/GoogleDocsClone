@@ -1,4 +1,5 @@
 const { Client } = require('@elastic/elasticsearch');
+const winston = require('winston');
 
 const client = new Client({
   node: 'http://localhost:9200',
@@ -29,7 +30,7 @@ exports.deleteIndex = () => {
 
 exports.createIndex = async () => {
     if (await client.indices.exists({index: 'documents'})) {
-        console.log("Elasticsearch index documents already exists");
+        logger.info("Elasticsearch index documents already exists");
         return false;
     }
     return await client.indices.create({
