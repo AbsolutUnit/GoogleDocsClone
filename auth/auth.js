@@ -213,3 +213,5 @@ app.listen(port, () => {
 // const docID = req.params.docID
 // const dest = uuid.parse(docID).reduce((a,b) => a+b, 0) % numShards // which doc service to send to 
 // have a map of dest to ips (load ips from .env)
+
+// Kelvin idea better modify the docID to have the port number in there

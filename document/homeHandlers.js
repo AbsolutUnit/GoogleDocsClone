@@ -32,7 +32,7 @@ exports.handleHome = (req, res, next) => {
                     });
 
                     document.getElementById("logout").addEventListener("click", function () {
-                        fetch("http://${process.env['HOST']}/users/logout", {
+                        fetch("http://${process.env['AUTH_HOST']}/users/logout", {
                             method: "POST"
                         });
                     });
