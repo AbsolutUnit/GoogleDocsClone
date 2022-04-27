@@ -35,11 +35,13 @@ const app = express();
 app.use(cors());
 app.use((req, res, next) => {
   console.log(req.url);
+  next();
+});
+app.use(bodyParser.json());
+app.use((req, res, next) => {
   console.log(req.body);
   next();
 });
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(
   session({

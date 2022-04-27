@@ -155,20 +155,22 @@ const handleVerify = async (req, res, next) => {
   res.json({ ok: true, message: 'User verified.' });
 };
 
+
+// Order matters below this line.
 const app = express();
+// First thing we do is enable cors.
 app.use(cors());
+// Next, log the URL
 app.use((req, res, next) => {
   console.log(req.url);
-  console.log(req.body);
   next();
 });
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
-app.use(express.urlencoded({ extended: true }));
+// Next, add the CSE 356 header.
 app.use((req, res, next) => {
     res.setHeader('X-CSE356', process.env['CSE_356_ID']);
     next();
 });
+// Add the session middleware, since this effects all requests.
 app.use(
     session({ // TODO: not sure if auth session middleware dif from document session middleware
       secret: 'some key', // TODO: .env this?
@@ -177,13 +179,7 @@ app.use(
       store: store,
     })
 );
-
-app.post('/users/signup', handleAddUser);
-app.post('/users/login', handleLogin);
-app.post('/users/logout', handleLogout);
-app.get('/users/verify', handleVerify);
-
-
+// Now, if it needs to be proxied, proxy it.
 const proxy = httpProxy.createProxyServer();
 function documentProxy(req, res) {
   if (req.session.isAuth) {
@@ -198,6 +194,16 @@ app.all('/media/*', documentProxy);
 app.all('/collection/*', documentProxy);
 app.all('/index/*', documentProxy);
 app.all('/', documentProxy);
+
+// Next, parse the body - we don't parse if we are proxying, so this goes here.
+app.use("/users/*", bodyParser.json());
+app.use("/users/*", express.urlencoded({ extended: true }));
+
+// Finally, the users routes.
+app.post('/users/signup', handleAddUser);
+app.post('/users/login', handleLogin);
+app.post('/users/logout', handleLogout);
+app.get('/users/verify', handleVerify);
 
 const port = 8080
 app.listen(port, () => {
