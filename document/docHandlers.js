@@ -379,7 +379,7 @@ exports.handleDocGet = (req, res, next) => {
           return;
         }
       });
-  });
+    }});
 
   res.json({ docid: docID });
 };
