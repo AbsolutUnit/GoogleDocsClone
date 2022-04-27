@@ -188,14 +188,14 @@ function documentProxy(req, res) {
     console.log("Unauthenticated.");
   }
 }
-app.all('/doc/*/:docID/*', documentProxy);
+app.all('/doc/*', documentProxy);
 app.all('/media/*', documentProxy);
 app.all('/collection/*', documentProxy);
 app.all('/index/*', documentProxy);
 app.all('/', documentProxy);
 
 // Next, parse the body - we don't parse if we are proxying, so this goes here.
-app.use("/users/*", express.json({limit: 1000}));
+app.use("/users/*", express.json({limit: "25mb" }));
 app.use("/users/*", express.urlencoded({ extended: true }));
 
 // Finally, the users routes.

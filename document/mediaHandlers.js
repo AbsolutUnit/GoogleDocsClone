@@ -6,7 +6,7 @@ let pathMapping = new Map();
 let mimeMapping = new Map();
 
 const storage = multer.diskStorage({
-  destination: require.main?.path + "/" + " media/uploads/ ",
+  destination: require.main?.path + "/media/uploads/",
   filename: (req, file, cb) => {
     let mediaID = parseInt(Math.random() * 1000000000).toString();
     cb(null, mediaID + path.extname(file.originalname));
@@ -23,6 +23,7 @@ exports.upload = multer({ storage });
  */
 exports.handleUpload = (req, res, next) => {
   let ext = req.file.filename.split('.').pop();
+  console.log(req.file);
   if (ext != 'png' && ext != 'jpeg' && ext != 'jpg' && ext != 'gif') {
     res.json({ error: true, message: 'not correct ft' });
   } else {
