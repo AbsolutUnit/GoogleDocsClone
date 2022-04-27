@@ -13,7 +13,9 @@ module.exports = {
         DOC0_HOST: 'http://localhost:8081',
         DOC1_HOST: 'http://localhost:8083',
       },
-      watch: true
+      watch: true,
+      autorestart: false,
+      log_date_format: "YYYY-MM-DD HH:mm Z"
     },
     {
       name: 'doc0',
@@ -25,7 +27,9 @@ module.exports = {
         DOC_PORT: '8081',
         SHAREDB_PORT: '8082'
       },
-      watch: true
+      watch: true,
+      autorestart: false,
+      log_date_format: "YYYY-MM-DD HH:mm Z"
     },
     // {
     //   name: 'doc1',
@@ -37,7 +41,9 @@ module.exports = {
     //     DOC_PORT: '8083',
     //     SHAREDB_PORT: '8084'
     //   },
-    //   watch: true
+    //   watch: true,
+    //   autorestart: false,
+    //   log_date_format: "YYYY-MM-DD HH:mm Z"
     // }
     ]
   }
