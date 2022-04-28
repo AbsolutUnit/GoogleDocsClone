@@ -27,8 +27,8 @@ wss.on('connection', function (ws) {
 const connection = backend.connect();
 
 // custom data structures
-const clientMapping = {};
 const docVersionMapping = {};
+const localPresenceStore = {};
 
 /**
  * update elasticsearch index
@@ -241,7 +241,7 @@ exports.handleDocConnect = (req, res, next) => {
   };
   res.writeHead(200, headers);
   // add client to our jank ass data structure
-  clientMapping[clientID] = {
+  localPresenceStore[clientID] = {
     presence: localPresence,
   };
   // subscribe to doc and listen for transformed ops
@@ -330,7 +330,7 @@ exports.handleDocPresence = (req, res, next) => {
   // slim chance Ferdman makes presence grading stricter
   const { index, length } = req.body;
   const clientID = req.params.UID;
-  const localPresence = clientMapping[clientID].presence
+  const localPresence = localPresenceStore[clientID].presence
   const range = {
     index,
     length,
