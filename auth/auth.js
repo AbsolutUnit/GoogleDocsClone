@@ -173,7 +173,7 @@ const app = express();
 app.use(cors());
 // Next, log the URL
 app.use((req, res, next) => {
-  logger.info(req.url);
+  logger.info(`req.url: ${req.url}`);
   next();
 });
 // Next, add the CSE 356 header.
@@ -193,14 +193,24 @@ app.use(
 // Now, if it needs to be proxied, proxy it.
 const proxy = httpProxy.createProxyServer();
 function documentProxy(req, res) {
+  const urlArray = req.url.split('/')
+  logger.info(`urlArray ${urlArray}`)
   if (req.session.isAuth) {
+    let base = process.env['DOC_BASE_URL']
+    let target = Math.random() < 0.5 ? `${base}${process.env['DOC0_PORT']}` :
+    `${base}${process.env['DOC1_PORT']}`
+    if (urlArray[1] === 'doc') {
+      const docID = urlArray[3]
+      logger.info(`docID: ${JSON.stringify(docID)}`)  
+      target = `${base}${docID.substr(-4,4)}` 
+    }
     logger.info("Redirecting to document server");
-    proxy.web(req, res, {target: process.env["DOCUMENT_URL"]});
+    proxy.web(req, res, {target: target});
   } else {
     logger.info("Unauthenticated.");
   }
 }
-app.all('/doc/*', documentProxy);
+app.all('/doc/*/:docID/*', documentProxy);
 app.all('/media/*', documentProxy);
 app.all('/collection/*', documentProxy);
 app.all('/index/*', documentProxy);
@@ -227,3 +237,11 @@ app.listen(port, () => {
 // have a map of dest to ips (load ips from .env)
 
 // Kelvin idea better modify the docID to have the port number in there
+/*
+app.all('/doc/edit/:DOCID/', documentProxy)
+app.all('/doc/connect/:DOCID/:UID', documentProxy)
+app.all('/doc/op/:DOCID/:UID', documentProxy)
+app.all('/doc/edit/:DOCID/:UID', documentProxy)
+app.all('/doc/presence/:DOCID/:UID', documentProxy)
+app.all('/doc/get/:DOCID/:UID', documentProxy)
+*/

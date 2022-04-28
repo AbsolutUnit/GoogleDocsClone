@@ -19,7 +19,7 @@ const backend = new ShareDB({
   presence: true,
   doNotForwardSendPresenceErrorsToClient: true,
 });
-const wss = new WebSocket.Server({ port: 8082 });
+const wss = new WebSocket.Server({ port: process.env['SHAREDB_PORT'] });
 wss.on('connection', function (ws) {
   var stream = new WebSocketJSONStream(ws);
   backend.listen(stream);
@@ -292,9 +292,6 @@ exports.handleDocConnect = (req, res, next) => {
     delete localPresenceStore[clientID]
     delete docVersionMapping[docID]
   });
-  req.on('end', (msg) => {
-    logger.warn(`request ended. msg=${msg}`)
-  });
 };
 
 /**
@@ -336,7 +333,7 @@ exports.handleDocOp = (req, res, next) => {
   }
   */
    
-  const updateFrequency = 15 // lower = more frq update
+  const updateFrequency = 30 // lower = more frq update
   if (!(docVersion % updateFrequency)) {
     updateIndex(doc, docID)
   }
@@ -393,7 +390,7 @@ exports.handleDocGet = (req, res, next) => {
  */
  exports.handleCreate = (req, res, next) => {
   const { name: name } = req.body;
-  const docID = uuidv4();
+  const docID = `${uuidv4()}${process.env['DOC_PORT']}`;
   let doc = connection.get('docs', docID);
   doc.fetch(async function (err) {
     if (err) throw err;

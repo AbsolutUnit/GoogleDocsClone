@@ -11,9 +11,9 @@ module.exports = {
         SMTP_PASS: 'cse356!!!312asdacm',
         SMTP_NAME: 'backyardigans',
         CSE_356_ID: '61f9d48d3e92a433bf4fc893',
-        DOCUMENT_URL: 'http://localhost:8081',
-        DOC0_HOST: 'http://localhost:8081',
-        DOC1_HOST: 'http://localhost:8083',
+        DOC_BASE_URL: 'http://localhost:',
+        DOC0_PORT: '8081',
+        DOC1_PORT: '8083',
       },
       autorestart: false,
       log_date_format: "YYYY-MM-DD HH:mm Z"
@@ -33,22 +33,21 @@ module.exports = {
       autorestart: false,
       log_date_format: "YYYY-MM-DD HH:mm Z"
     },
-    // {
-    //   name: 'doc1',
-    //   script: './document/server.js',
-    //   env_production: {
-    //     SILENCE_LOGS: '',
-    //     LOGGER_LEVEL: 'info',
-    //     CSE_356_ID: '61f9d48d3e92a433bf4fc893',
-    //     MONGO_URI: 'mongodb://localhost:27017',
-    //     AUTH_HOST: 'http://localhost:8080',
-    //     DOC_PORT: '8083',
-    //     SHAREDB_PORT: '8084'
-    //   },
-    //   watch: true,
-    //   autorestart: false,
-    //   log_date_format: "YYYY-MM-DD HH:mm Z"
-    // }
+     {
+       name: 'doc1',
+       script: './document/server.js',
+       env_production: {
+         SILENCE_LOGS: '',
+         LOGGER_LEVEL: 'info',
+         CSE_356_ID: '61f9d48d3e92a433bf4fc893',
+         MONGO_URI: 'mongodb://localhost:27017',
+         AUTH_HOST: 'http://localhost:8080',
+         DOC_PORT: '8083',
+         SHAREDB_PORT: '8084'
+       },
+       autorestart: false,
+       log_date_format: "YYYY-MM-DD HH:mm Z"
+     }
     ]
   }
   

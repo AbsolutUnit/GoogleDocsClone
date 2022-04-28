@@ -87,7 +87,7 @@ app.post('/index/deleteIndex', (req,res) => {
 });
 // TODO: new endpoints
 
-const port = 8081
+const port = process.env['DOC_PORT']
 app.listen(port, () => {
   logger.info(`Listening on port ${port}`);
 });
