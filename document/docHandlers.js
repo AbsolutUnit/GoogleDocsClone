@@ -29,7 +29,6 @@ const connection = backend.connect();
 // custom data structures
 const clientMapping = {};
 const docVersionMapping = {};
-var docVersion = 0;
 
 /**
  * Show the UI for editing a document: /doc/edit/:documentId
@@ -209,9 +208,10 @@ exports.handleDocConnect = (req, res, next) => {
   const presence = connection.getDocPresence('docs', docID);
   const localPresence = presence.create(clientID);
   // set doc version in case new doc
+  var docVersion = 0;
   if (docVersionMapping[docID] === undefined) {
-    docVersionMapping[docID] = 0;
-    docVersion = 0;
+    docVersionMapping[docID] = doc.version;
+    docVersion = doc.version;
   } else {
     docVersion = docVersionMapping[docID];
   }
@@ -284,11 +284,11 @@ exports.handleDocOp = (req, res, next) => {
   const clientID = req.params.UID;
   const doc = connection.get('docs', docID);
   logger.info('req version: ', req.body.version);
-  logger.info('(our) doc.version: ', docVersion);
+  logger.info('(our) doc.version: ', docVersionMapping[docID]);
   logger.info('(sharedb) doc.version: ', doc.version);
   if (docVersionMapping[docID] === undefined) {
-    docVersionMapping[docID] = 0;
-    docVersion = 0;
+    docVersionMapping[docID] = doc.version;
+    docVersion = doc.version;
   } else {
     docVersion = docVersionMapping[docID];
   }
