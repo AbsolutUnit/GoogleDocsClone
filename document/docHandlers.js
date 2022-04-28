@@ -43,7 +43,7 @@ const updateIndex = (doc, docID) => {
     const html = converter.convert();
     const text = convert(html)
     indexHandlers.updateDocument(text, docID)
-    logger.info('updated index')
+    logger.info('INDEX UPDATED MOTHERFUCKER')
   });
 }
 
@@ -247,7 +247,7 @@ exports.handleDocConnect = (req, res, next) => {
   // subscribe to doc and listen for transformed ops
   doc.subscribe((err) => {
     if (err) res.json({ error: true, message: err });
-    logger.info('doc.data in doc.subscribe: ', doc.data);
+    logger.info(`doc.data in doc.subscribe: ${JSON.stringify(doc.data)}`);
     let data = `data: ${JSON.stringify({
       content: doc.data.ops,
       version: docVersion,
@@ -266,7 +266,7 @@ exports.handleDocConnect = (req, res, next) => {
   presence.subscribe()
   backend.use('sendPresence', (context, next) => {
     // check presence id matches docID
-    logger.info('context.presence.d: ', context.presence.d) // p sure .d is docID, need to find out tho
+    logger.info(`context.presence.d: ${docID}`) // p sure .d is docID, need to find out tho
     if (context.presence.d !== docID) return 
     let data = `data: ${JSON.stringify({presence: {id: context.presence.id, cursor: context.presence.p }})}\n\n`
     res.write(data)
@@ -307,7 +307,7 @@ exports.handleDocOp = (req, res, next) => {
   doc.submitOp(req.body.op, { source: source });
   docVersionMapping[docID] = docVersionMapping[docID] + 1;
   // periodically update index 
-  const updateFrequency = 50 // lower = more frq update
+  const updateFrequency = 1 // lower = more frq update
   if (!(docVersion % updateFrequency)) {
     updateIndex(doc, docID)
   }
@@ -376,7 +376,7 @@ exports.handleDocGet = (req, res, next) => {
       });
       documentMap.save(function (err) {
         if (err) {
-          logger.info(err);
+          logger.info(`Errored out on create: ${JSON.stringify(err)}`);
           res.json({ error: true, message: "couldn't save the document map" });
           return;
         }
@@ -405,7 +405,7 @@ exports.handleDelete = async (req, res, next) => {
       logger.info(`doc id: ${docID} deleted!`);
       DocMapModel.deleteOne({ docID }, function (err) {
         if (err) {
-          logger.info(err);
+          logger.info(`Error on Delete: ${JSON.stringify(err)}`);
           res.json({ error: true, message: 'Could not delete document.' });
           return;
         }

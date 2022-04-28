@@ -34,12 +34,12 @@ indexHandlers.createIndex()
 const app = express();
 app.use(cors());
 app.use((req, res, next) => {
-  logger.info(req.url);
+  logger.info(`Server Request URL: ${req.url}`);
   next();
 });
 app.use(express.json({limit: "25mb" }));
 app.use((req, res, next) => {
-  logger.info(req.body);
+  logger.info(`Server Request Body: ${JSON.stringify(req.body)}`);
   next();
 });
 app.use(express.urlencoded({ extended: true }));
@@ -77,7 +77,13 @@ app.get('/doc/get/:DOCID/:UID', docHandlers.handleDocGet);
 app.get('/home', homeHandlers.handleHome);
 app.get('/index/search', indexHandlers.handleSearch)
 app.get('/index/suggest', indexHandlers.handleSuggest) 
-app.use('/', express.static('/root/finaljs/static'));
+// app.use('/', express.static('/root/finaljs/static'));
+app.post('/index/deleteIndex', (req,res) => {
+    indexHandlers.deleteIndex();
+    res.write('index deleted');
+    res.end();
+    logger.info('called deleteIndex')
+});
 // TODO: new endpoints
 
 const port = 8081

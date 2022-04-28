@@ -30,18 +30,18 @@ exports.deleteIndex = () => {
 
 exports.createIndex = async () => {
     if (await client.indices.exists({index: 'documents'})) {
-        logger.info("Elasticsearch index documents already exists");
-        return false;
+      logger.info("Elasticsearch index documents already exists");
+      return false;
     }
-    return await client.indices.create({
+    client.indices.create({
     index: 'documents',
     settings: {
       analysis: {
         analyzer: {
           //TODO : test if this analyzer works
-          my_analyzer: {
+            my_analyzer: {
             tokenizer: 'standard', 
-            filter: ['stop', 'stemmer'], // filters stop words and stemming
+            filter: ['stop', 'stemmer', 'lowercase'], // filters stop words and stemming
           },
         },
       },
@@ -67,6 +67,17 @@ exports.createIndex = async () => {
       },
     },
   });
+};
+
+exports.analyzeText = async (text) => {
+  const response = await client.indices.analyze({
+      index: 'documents',
+      body: {
+        analyzer: 'my_analyzer',
+        text: text,
+      }
+  });
+  return response;
 };
 
 exports.addDocument = (id, name, text) => {
@@ -100,6 +111,17 @@ exports.updateDocument = async (text, id) => {
   });
 };
 
+//returns a snippet string from highlight object, priority given to text
+function pickSnippet(highlight) {
+  if(highlight.text) {
+    return highlight.text[0];
+  } else if(highlight.name) {
+    return highlight.name[0];
+  } else {
+    return ''; 
+  }
+}
+
 // /index/search?q=...
 exports.handleSearch = async (req, res) => {
   const searchText = req.query.q;
@@ -115,12 +137,13 @@ exports.handleSearch = async (req, res) => {
         },
         highlight: {
           fields: {
-            text: {}
+            text: {},
+            name: {}
           },
         },
       },
     })
-    .then((response) => {
+    .then((response) => { 
       let endpointResponse = [];
       const hits = response.hits.hits;
       let counter = 0;
@@ -129,7 +152,7 @@ exports.handleSearch = async (req, res) => {
         endpointResponse.push({
             id: params._id, 
             name: _source.name, 
-            snippet: highlight.text[0],
+            snippet: pickSnippet(highlight),
         });
       });
       return res.json(endpointResponse);
@@ -144,8 +167,9 @@ exports.handleSearch = async (req, res) => {
 exports.handleSuggest = async (req, res) => {
   const suggestText = req.query.q;
   const response = await client.search({
-      index: 'documents',
+    index: 'documents',
     body: {
+      _source: false,
       suggest: {
         gotsuggest: {
           prefix: suggestText,

@@ -24,7 +24,7 @@ exports.upload = multer({ storage });
  */
 exports.handleUpload = (req, res, next) => {
   let ext = req.file.filename.split('.').pop();
-  logger.info(req.file);
+  logger.info(`File for Media: ${req.file !== null}`);
   if (ext != 'png' && ext != 'jpeg' && ext != 'jpg' && ext != 'gif') {
     res.json({ error: true, message: 'not correct ft' });
   } else {
