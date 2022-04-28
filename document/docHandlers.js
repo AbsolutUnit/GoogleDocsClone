@@ -27,7 +27,6 @@ wss.on('connection', function (ws) {
 const connection = backend.connect();
 
 // custom data structures
-const clientMapping = {};
 const docVersionMapping = {};
 
 /**
@@ -240,10 +239,6 @@ exports.handleDocConnect = (req, res, next) => {
     'Cache-Control': 'no-cache',
   };
   res.writeHead(200, headers);
-  // add client to our jank ass data structure
-  clientMapping[clientID] = {
-    presence: localPresence,
-  };
   // subscribe to doc and listen for transformed ops
   doc.subscribe((err) => {
     if (err) res.json({ error: true, message: err });
@@ -329,8 +324,9 @@ exports.handleDocPresence = (req, res, next) => {
   // but if necessary feel like we can go back to it
   // slim chance Ferdman makes presence grading stricter
   const { index, length } = req.body;
+  const documentID = req.params.DOCID;
   const clientID = req.params.UID;
-  const localPresence = clientMapping[clientID].presence
+  const localPresence = connection.getDocPresence(documentID, clientID)
   const range = {
     index,
     length,
