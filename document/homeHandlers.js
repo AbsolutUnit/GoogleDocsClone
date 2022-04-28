@@ -1,4 +1,4 @@
-require('dotenv').config()
+// require('dotenv').config()
 const Client = require('sharedb/lib/client');
 const richText = require('rich-text');
 

@@ -155,7 +155,9 @@ exports.handleSearch = async (req, res) => {
             snippet: pickSnippet(highlight),
         });
       });
-      return res.json(endpointResponse);
+      logger.info(`endpointResponse: ${JSON.stringify(endpointResponse)}`) // ofc works
+      res.json(endpointResponse)
+
     })
     .catch((err) => {
       return res.json({ error: true, message: `search failed, err=${err} ` });

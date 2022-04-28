@@ -1,4 +1,4 @@
-require('dotenv').config();
+// require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const session = require('express-session');
@@ -11,8 +11,10 @@ const homeHandlers = require('./homeHandlers')
 const mediaHandlers = require('./mediaHandlers')
 const indexHandlers = require('./indexHandlers')
 
-// session db setup TODO: THIS WILL NOT WORK WHEN SCALED OUT
+
+// session storage
 const mongoURI = process.env["MONGO_URI"];
+logger.info(`mongoURI: ${mongoURI}`)
 mongoose
   .connect(mongoURI, {
     useNewURLParser: true,
@@ -24,10 +26,9 @@ mongoose
   });
 const store = new MongoDBSession({
   uri: mongoURI,
-  collection: 'users', // exact same session store as auth service!
+  collection: 'users', 
 });
 
-// create search index TODO: hope and pray idempotent
 indexHandlers.createIndex()
 
 // server setup & middleware
