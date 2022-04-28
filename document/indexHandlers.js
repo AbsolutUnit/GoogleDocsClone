@@ -33,7 +33,7 @@ exports.createIndex = async () => {
       logger.info("Elasticsearch index documents already exists");
       return false;
     }
-    client.indices.create({
+    await client.indices.create({
     index: 'documents',
     settings: {
       analysis: {
@@ -124,6 +124,7 @@ function pickSnippet(highlight) {
 
 // /index/search?q=...
 exports.handleSearch = async (req, res) => {
+  await new Promise(resolve => setTimeout(resolve, 2000));
   const searchText = req.query.q;
   client
     .search({
@@ -166,6 +167,7 @@ exports.handleSearch = async (req, res) => {
 // /index/suggest?q=...
 // TODO : figure out a way to get multiple autocomplete suggests (also do we really have to)
 exports.handleSuggest = async (req, res) => {
+  await new Promise(resolve => setTimeout(resolve, 2000));
   const suggestText = req.query.q;
   const response = await client.search({
     index: 'documents',

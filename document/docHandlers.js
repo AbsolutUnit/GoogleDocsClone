@@ -333,9 +333,10 @@ exports.handleDocOp = (req, res, next) => {
   }
   */
    
-  const updateFrequency = 30 // lower = more frq update
+  const updateFrequency = 1; // lower = more frq update
   if (!(docVersion % updateFrequency)) {
-    updateIndex(doc, docID)
+    logger.info("Updating document index.");
+    updateIndex(doc, docID);
   }
   
   res.send(`${JSON.stringify({ status: 'ok' })}`);
