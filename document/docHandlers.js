@@ -1,4 +1,4 @@
-require('dotenv').config();
+// require('dotenv').config();
 const WebSocket = require('ws');
 const richText = require('rich-text');
 const QuillDeltaToHtmlConverter = require('quill-delta-to-html').QuillDeltaToHtmlConverter;
@@ -9,6 +9,7 @@ const { v4: uuidv4 } = require('uuid');
 const indexHandlers = require('./indexHandlers')
 const DocMapModel = require('./models/Document');
 const { logger } = require('./logger')
+
 
 const mongoURI = process.env["MONGO_URI"];
 const db = require('sharedb-mongo')(mongoURI);
@@ -22,12 +23,13 @@ const wss = new WebSocket.Server({ port: 8082 });
 wss.on('connection', function (ws) {
   var stream = new WebSocketJSONStream(ws);
   backend.listen(stream);
-  logger.info("ShareDB listening on 8082")
+logger.info("ShareDB listening on 8082")
 });
 const connection = backend.connect();
 
 // custom data structures
 const docVersionMapping = {};
+const lastUpdated = {};
 const localPresenceStore = {};
 
 /**
@@ -35,7 +37,7 @@ const localPresenceStore = {};
  * @param {*} doc 
  * @param {*} docID 
  */
-const updateIndex = (doc, docID) => {
+const updateIndex = async (doc, docID) => {
   doc.fetch((err) => {
     if (err) throw err
     const deltaOps = doc.data.ops;
@@ -262,7 +264,16 @@ exports.handleDocConnect = (req, res, next) => {
       res.write(data);
     });
   });
+  doc.on('op', (op, source) => {
+    if (op.ops) op = op.ops // because sharedb is stupid
+    let data = `data: ${JSON.stringify(op)}\n\n`;
+    if (source.clientID == clientID) {
+      data = `data: ${JSON.stringify({ ack: source.op })}\n\n`;
+    }
+    res.write(data);
+  });
   // handle presence updates from sharedb
+  /*
   presence.subscribe()
   backend.use('sendPresence', (context, next) => {
     // check presence id matches docID
@@ -271,10 +282,23 @@ exports.handleDocConnect = (req, res, next) => {
     let data = `data: ${JSON.stringify({presence: {id: context.presence.id, cursor: context.presence.p }})}\n\n`
     res.write(data)
   });
+  */
   // if nothing is going on, update the index
   doc.whenNothingPending(() => {
     updateIndex(doc, docID)
   })
+
+  req.on('close', (msg) => {
+    logger.warn(`request closed. msg=${msg}`)
+    presence.destroy()
+    // doc.removeListener() // this is an error
+    doc.destroy()
+    delete localPresenceStore[clientID]
+    delete docVersionMapping[docID]
+  });
+  req.on('end', (msg) => {
+    logger.warn(`request ended. msg=${msg}`)
+  });
 };
 
 /**
@@ -307,10 +331,20 @@ exports.handleDocOp = (req, res, next) => {
   doc.submitOp(req.body.op, { source: source });
   docVersionMapping[docID] = docVersionMapping[docID] + 1;
   // periodically update index 
-  const updateFrequency = 1 // lower = more frq update
+  /*
+  const lastTimestamp = lastUpdated[docID];
+  const currTime = Date.now() / 1000;
+  if ((currTime - lastTimestamp) >= 10) {
+    updateIndex(doc, docID);
+    lastUpdated[docID] = currTime;
+  }
+  */
+   
+  const updateFrequency = 15 // lower = more frq update
   if (!(docVersion % updateFrequency)) {
     updateIndex(doc, docID)
   }
+  
   res.send(`${JSON.stringify({ status: 'ok' })}`);
 };
 
@@ -370,10 +404,22 @@ exports.handleDocGet = (req, res, next) => {
     if (doc.type === null) {
       doc.create([{ insert: '\n' }], 'rich-text');
       indexHandlers.addDocument(docID, name, '\n')
+      /*
+      setTimeout(() => {
+        updateIndex(doc, docID)
+      }, 5000)
+      setTimeout(() => {
+        updateIndex(doc, docID)
+      }, 10000)
+      setTimeout(() => {
+        updateIndex(doc, docID)
+      }, 20000);
+      */
       let documentMap = new DocMapModel({
         docName: name,
         docID,
       });
+      
       documentMap.save(function (err) {
         if (err) {
           logger.info(`Errored out on create: ${JSON.stringify(err)}`);
