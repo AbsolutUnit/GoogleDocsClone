@@ -258,11 +258,8 @@ exports.handleDocConnect = (req, res, next) => {
       let data = `data: ${JSON.stringify(op)}\n\n`;
       if (source.clientID == clientID) {
         data = `data: ${JSON.stringify({ ack: source.op })}\n\n`;
-        res.write(data);
-      } else {
-        data = `data: ${JSON.stringify(op)}\n\n`;
-        res.write(data);
       }
+      res.write(data);
     });
   });
   // handle presence updates from sharedb
