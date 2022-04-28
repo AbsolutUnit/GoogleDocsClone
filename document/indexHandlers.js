@@ -156,8 +156,7 @@ exports.handleSearch = async (req, res) => {
         });
       });
       logger.info(`endpointResponse: ${JSON.stringify(endpointResponse)}`) // ofc works
-      res.json(endpointResponse)
-
+      return res.json(endpointResponse)
     })
     .catch((err) => {
       return res.json({ error: true, message: `search failed, err=${err} ` });
