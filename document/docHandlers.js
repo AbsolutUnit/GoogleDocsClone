@@ -45,7 +45,7 @@ const updateIndex = async (doc, docID) => {
     const html = converter.convert();
     const text = convert(html)
     indexHandlers.updateDocument(text, docID)
-    logger.info('INDEX UPDATED MOTHERFUCKER')
+    logger.info('INDEX UPDATED')
   });
 }
 
@@ -246,6 +246,16 @@ exports.handleDocConnect = (req, res, next) => {
   localPresenceStore[clientID] = {
     presence: localPresence,
   };
+
+  const writeOpResult = (op, source) => {
+    if (op.ops) op = op.ops // because sharedb is stupid
+    let data = `data: ${JSON.stringify(op)}\n\n`;
+    if (source.clientID == clientID) {
+      data = `data: ${JSON.stringify({ ack: source.op })}\n\n`;
+    }
+    res.write(data);
+  };
+
   // subscribe to doc and listen for transformed ops
   doc.subscribe((err) => {
     if (err) res.json({ error: true, message: err });
@@ -255,23 +265,9 @@ exports.handleDocConnect = (req, res, next) => {
       version: docVersion,
     })}\n\n`; // can switch bw doc.version and docVersion
     res.write(data);
-    doc.on('op', (op, source) => {
-      if (op.ops) op = op.ops // because sharedb is stupid
-      let data = `data: ${JSON.stringify(op)}\n\n`;
-      if (source.clientID == clientID) {
-        data = `data: ${JSON.stringify({ ack: source.op })}\n\n`;
-      }
-      res.write(data);
-    });
+    doc.on('op', writeOpResult);
   });
-  doc.on('op', (op, source) => {
-    if (op.ops) op = op.ops // because sharedb is stupid
-    let data = `data: ${JSON.stringify(op)}\n\n`;
-    if (source.clientID == clientID) {
-      data = `data: ${JSON.stringify({ ack: source.op })}\n\n`;
-    }
-    res.write(data);
-  });
+
   // handle presence updates from sharedb
   /*
   presence.subscribe()
@@ -290,8 +286,8 @@ exports.handleDocConnect = (req, res, next) => {
 
   req.on('close', (msg) => {
     logger.warn(`request closed. msg=${msg}`)
-    presence.destroy()
-    // doc.removeListener() // this is an error
+    // presence.destroy()
+    doc.removeListener('op', writeOpResult); 
     doc.destroy()
     delete localPresenceStore[clientID]
     delete docVersionMapping[docID]
@@ -404,17 +400,6 @@ exports.handleDocGet = (req, res, next) => {
     if (doc.type === null) {
       doc.create([{ insert: '\n' }], 'rich-text');
       indexHandlers.addDocument(docID, name, '\n')
-      /*
-      setTimeout(() => {
-        updateIndex(doc, docID)
-      }, 5000)
-      setTimeout(() => {
-        updateIndex(doc, docID)
-      }, 10000)
-      setTimeout(() => {
-        updateIndex(doc, docID)
-      }, 20000);
-      */
       let documentMap = new DocMapModel({
         docName: name,
         docID,
