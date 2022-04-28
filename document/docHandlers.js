@@ -31,6 +31,23 @@ const clientMapping = {};
 const docVersionMapping = {};
 
 /**
+ * update elasticsearch index
+ * @param {*} doc 
+ * @param {*} docID 
+ */
+const updateIndex = (doc, docID) => {
+  doc.fetch((err) => {
+    if (err) throw err
+    const deltaOps = doc.data.ops;
+    const converter = new QuillDeltaToHtmlConverter(deltaOps, {});
+    const html = converter.convert();
+    const text = convert(html)
+    indexHandlers.updateDocument(text, docID)
+    logger.info('updated index')
+  });
+}
+
+/**
  * Show the UI for editing a document: /doc/edit/:documentId
  *
  * @param req.params: {documentId}
@@ -235,7 +252,6 @@ exports.handleDocConnect = (req, res, next) => {
       content: doc.data.ops,
       version: docVersion,
     })}\n\n`; // can switch bw doc.version and docVersion
-    logger.info('event stream data (contents,version): ', data);
     res.write(data);
     doc.on('op', (op, source) => {
       if (op.ops) op = op.ops // because sharedb is stupid
@@ -260,14 +276,7 @@ exports.handleDocConnect = (req, res, next) => {
   });
   // if nothing is going on, update the index
   doc.whenNothingPending(() => {
-    doc.fetch((err) => {
-    if (err) throw err
-    const deltaOps = doc.data.ops;
-    const converter = new QuillDeltaToHtmlConverter(deltaOps, {});
-    const html = converter.convert();
-    const text = convert(html)
-    indexHandlers.updateDocument(text, docID)
-    });
+    updateIndex(doc, docID)
   })
 };
 
@@ -280,12 +289,8 @@ exports.handleDocConnect = (req, res, next) => {
  */
 exports.handleDocOp = (req, res, next) => {
   const docID = req.params.DOCID;
-  logger.info('handleDocOP ', req.body);
   const clientID = req.params.UID;
   const doc = connection.get('docs', docID);
-  logger.info('req version: ', req.body.version);
-  logger.info('(our) doc.version: ', docVersionMapping[docID]);
-  logger.info('(sharedb) doc.version: ', doc.version);
   if (docVersionMapping[docID] === undefined) {
     docVersionMapping[docID] = doc.version;
     docVersion = doc.version;
@@ -304,9 +309,11 @@ exports.handleDocOp = (req, res, next) => {
   };
   doc.submitOp(req.body.op, { source: source });
   docVersionMapping[docID] = docVersionMapping[docID] + 1;
-  // logger.info('After submit, doc.data: ', doc.data);
-  // logger.info('After submit, (our) doc version: ', docVersion);
-  // logger.info('After submit, (sharedb) doc version: ', doc.version);
+  // periodically update index 
+  const updateFrequency = 50 // lower = more frq update
+  if (!(docVersion % updateFrequency)) {
+    updateIndex(doc, docID)
+  }
   res.send(`${JSON.stringify({ status: 'ok' })}`);
 };
 
@@ -343,6 +350,7 @@ exports.handleDocPresence = (req, res, next) => {
 exports.handleDocGet = (req, res, next) => {
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
+  // NOTE: notice there is no doc.fetch here...
   const doc = connection.get('docs', docID);
   const deltaOps = doc.data.ops;
   const converter = new QuillDeltaToHtmlConverter(deltaOps, {});
@@ -392,7 +400,6 @@ exports.handleDelete = async (req, res, next) => {
   const doc = connection.get('docs', docID);
   doc.fetch(async function (err) {
     if (err) throw err;
-    //logger.info(doc);
     if (doc.type === null) {
       res.json({ error: true, message: 'Could not delete document.' });
       return;
@@ -443,3 +450,4 @@ exports.getTopTen = (callback) => {
     callback(resList);
   });
 };
+
