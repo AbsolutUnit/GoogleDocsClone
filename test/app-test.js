@@ -4,8 +4,8 @@ import { check, sleep } from 'k6';
 // if we want node modules here we need a bundler...
 
 export const options = {
-  vus: 50,
-  duration:'1m',
+  vus: 500,
+  duration:'1m30s',
   // stages: [
   //   { duration: '30s', target: 20 },
   //   { duration: '1m30s', target: 10 },
@@ -15,7 +15,7 @@ export const options = {
 
 /* init code, run once per VU */
 
-const numOps = 100
+const numOps = 300
 const headers = {'Content-Type': 'application/json', 'Accept': '*/*'}
 
 // base urls
@@ -95,7 +95,7 @@ export default function () {
     if (JSON.parse(res.body).status === 'ok') version++
 
     // throw some media in there
-    if (!(i % 5)) {
+    if (!(i % 10)) {
       res = http.post(uploadURL, mediaData)
       check(res, { 'file uploaded': (r) => !!JSON.parse(r.body).mediaid})
       sleep(0.05)
