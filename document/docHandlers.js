@@ -225,10 +225,7 @@ exports.handleDocConnect = (req, res, next) => {
   res.writeHead(200, headers);
   // add client to our jank ass data structure
   clientMapping[clientID] = {
-    doc: doc,
     presence: localPresence,
-    // res: res, // for satanic presence hack
-    name: req.session.username,
   };
   // subscribe to doc and listen for transformed ops
   doc.subscribe((err) => {
@@ -285,7 +282,6 @@ exports.handleDocOp = (req, res, next) => {
   const docID = req.params.DOCID;
   logger.info('handleDocOP ', req.body);
   const clientID = req.params.UID;
-  // const doc = clientMapping[clientID].doc;
   const doc = connection.get('docs', docID);
   logger.info('req version: ', req.body.version);
   logger.info('(our) doc.version: ', docVersion);
