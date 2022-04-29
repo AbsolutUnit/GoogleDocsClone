@@ -5,11 +5,12 @@ const QuillDeltaToHtmlConverter = require('quill-delta-to-html').QuillDeltaToHtm
 const { convert } = require('html-to-text');
 const ShareDB = require('sharedb');
 const WebSocketJSONStream = require('@teamwork/websocket-json-stream');
-const { v4: uuidv4 } = require('uuid');
 const indexHandlers = require('./indexHandlers')
 const DocMapModel = require('./models/Document');
 const { logger } = require('./logger')
 
+const { Snowflake } = require("nodejs-snowflake");
+const snowflakeFactory = new Snowflake({custom_epoch: Date(2022, 1, 1), instance_id: process.env["SHARD_ID"]});
 
 const mongoURI = process.env["MONGO_URI"];
 const db = require('sharedb-mongo')(mongoURI);
@@ -391,7 +392,7 @@ exports.handleDocGet = (req, res, next) => {
  */
  exports.handleCreate = (req, res, next) => {
   const { name: name } = req.body;
-  const docID = `${uuidv4()}${process.env['DOC_PORT']}`;
+  const docID = snowflakeFactory.getUniqueID();
   let doc = connection.get('docs', docID);
   doc.fetch(async function (err) {
     if (err) throw err;
@@ -412,7 +413,7 @@ exports.handleDocGet = (req, res, next) => {
       });
     }});
 
-  res.json({ docid: docID });
+   res.json({ docid: `${docID}` });
 };
 
 /**

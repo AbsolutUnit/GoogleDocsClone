@@ -3,6 +3,7 @@ const cors = require('cors');
 const session = require('express-session');
 const process = require('process');
 const httpProxy = require('http-proxy');
+const { Snowflake } = require('nodejs-snowflake');
 
 const { logger } = require('./logger');
 const { authStore, handleAddUser, handleLogin, handleLogout, handleVerify } = require('./auth');
@@ -57,31 +58,46 @@ app.use(
 // Now, if it needs to be proxied, proxy it.
 
 const proxy = httpProxy.createProxyServer();
+const docServerCount = process.env["DOCUMENT_SHARDS"].length;
+const docServerChoice = (docID) => Snowflake.instanceIDFromID(docID);
+
+// Proxy rules: proxy to the shard id, then proxy after with nginx on the random part of the snowflake.
 function documentProxy(req, res) {
-  const urlArray = req.url.split('/')
-  logger.info(`urlArray ${urlArray}`)
   if (req.session.isAuth) {
-    let base = process.env['DOC_BASE_URL']
-    let target = Math.random() < 0.5 ? `${base}${process.env['DOC0_PORT']}` :
-    `${base}${process.env['DOC1_PORT']}`
-    if (urlArray[1] === 'doc') {
-      const docID = urlArray[3]
-      logger.info(`docID: ${JSON.stringify(docID)}`)  
-      target = `${base}${docID.substr(-4,4)}` 
-    }
-    logger.info("Redirecting to document server");
+    target = process.env["DOCUMENT_SHARDS"][docServerChoice(parseInt(req.params.docID))];
     proxy.web(req, res, {target: target});
   } else {
     logger.info("Unauthenticated.");
   }
 }
 app.all('/doc/*/:docID/*', documentProxy);
+
+// Round robin the collection requests between the document servers.
+const collectionsMade = 0;
+function collectionCreateProxy(req, res) {
+  if (req.session.isAuth) {
+    target = process.env["DOCUMENT_SHARDS"][collectionsMade % docServerCount];
+    logger.info(`Collection request: redirecting to ${target}`)
+    collectionsMade++;
+    proxy.web(req, res, {target: target});
+  }
+}
+app.all('/collection/create', collectionCreateProxy);
+
+// Like document proxy, but we need to get the document ID from the body.
+function collectionDeleteProxy(req, res) {
+  if (req.session.isAuth) {
+    target = process.env["DOCUMENT_SHARDS"][docServerChoice(parseInt(req.body.docId))];
+    proxy.web(req, res, {target: target});
+  }
+}
+app.all('/collection/delete', express.json(), collectionDeleteProxy);
+
 app.all('/media/*', documentProxy);
-app.all('/collection/*', documentProxy);
 app.all('/index/*', documentProxy);
 app.all('/', documentProxy);
 
-// Next, parse the body - we don't parse if we are proxying, so this goes here.
+// Next, parse the body if we are going to users.
 app.use("/users/*", express.json({limit: "25mb" }));
 app.use("/users/*", express.urlencoded({ extended: true }));
 
