@@ -2,7 +2,7 @@ const { Client } = require('@elastic/elasticsearch');
 const { logger } = require('./logger')
 
 const client = new Client({
-  node: 'http://localhost:9200',
+  node: process.env["ELASTICSEARCH_URI"],
 });
 
 /*
