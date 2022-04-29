@@ -5,7 +5,7 @@ const QuillDeltaToHtmlConverter = require('quill-delta-to-html').QuillDeltaToHtm
 const { convert } = require('html-to-text');
 const ShareDB = require('sharedb');
 const WebSocketJSONStream = require('@teamwork/websocket-json-stream');
-const indexHandlers = require('./indexHandlers')
+const indexing = require('./indexing')
 const DocMapModel = require('./models/Document');
 const {v4: uuidv4} = require('uuid');
 const { logger } = require('./logger')
@@ -43,7 +43,7 @@ const updateIndex = async (docData, docID) => {
     const converter = new QuillDeltaToHtmlConverter(deltaOps, {});
     const html = converter.convert();
     const text = convert(html)
-    indexHandlers.updateDocument(text, docID)
+    indexing.updateDocument(text, docID)
     logger.info('INDEX UPDATED');
 }
 
@@ -390,7 +390,7 @@ exports.handleDocGet = (req, res, next) => {
     if (err) throw err;
     if (doc.type === null) {
       doc.create([{ insert: '\n' }], 'rich-text');
-      indexHandlers.addDocument(docID, name, '\n')
+      indexing.addDocument(docID, name, '\n')
       let documentMap = new DocMapModel({
         docName: name,
         docID,

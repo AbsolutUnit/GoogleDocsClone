@@ -4,9 +4,9 @@ const process = require('process');
 const httpProxy = require('http-proxy');
 
 const { logger } = require('./logger');
-const { authSession, handleAddUser, handleLogin, handleLogout, handleVerify } = require('./auth');
-const { handleMediaUpload, handleMediaUploadNext, handleMediaAccess } = require('./media');
-const { createIndex, handleDeleteIndex, handleIndexSearch, handleIndexSuggest } = require('./indexing');
+const { authSession, handleAddUser, handleLogin, handleLogout, handleVerify } = require('./authHandlers');
+const { handleMediaUpload, handleMediaUploadNext, handleMediaAccess } = require('./mediaHandlers');
+const { createIndex, handleDeleteIndex, handleIndexSearch, handleIndexSuggest } = require('./indexHandlers');
 
 const app = express();
 app.use(cors());
