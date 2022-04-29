@@ -26,26 +26,25 @@ wss.on('connection', function (ws) {
 });
 const connection = backend.connect();
 
-// custom data structures
-const docVersionMapping = {};
-const lastUpdated = {};
-const localPresenceStore = {};
+// docStore[docId] = {
+//    share: sharedb.doc,
+//    clients: {clientId: res},
+//    presence: presence
+// }
+const docStore = {};
 
 /**
  * update elasticsearch index
  * @param {*} doc 
  * @param {*} docID 
  */
-const updateIndex = async (doc, docID) => {
-  doc.fetch((err) => {
-    if (err) throw err
-    const deltaOps = doc.data.ops;
+const updateIndex = async (docData, docID) => {
+    deltaOps = docData.ops;
     const converter = new QuillDeltaToHtmlConverter(deltaOps, {});
     const html = converter.convert();
     const text = convert(html)
     indexHandlers.updateDocument(text, docID)
-    logger.info('INDEX UPDATED')
-  });
+    logger.info('INDEX UPDATED');
 }
 
 /**
@@ -219,20 +218,27 @@ exports.handleDocEdit = (req, res, next) => {
  * @param req.params: {documentId, clientId}
  * @returns an event stream containing the document data.
  */
-exports.handleDocConnect = (req, res, next) => {
+exports.handleDocConnect = (req, res) => {
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
-  const doc = connection.get('docs', docID);
-  const presence = connection.getDocPresence('docs', docID);
-  const localPresence = presence.create(clientID);
-  // set doc version in case new doc
-  var docVersion = 0;
-  if (docVersionMapping[docID] === undefined) {
-    docVersionMapping[docID] = doc.version;
-    docVersion = doc.version;
-  } else {
-    docVersion = docVersionMapping[docID];
+
+  const doc = docStore[docID];
+  // Sometimes we may be editing a document that came from mongodb, so it wasnt created this session.
+  if (doc === undefined) {
+    docStore[docID] = {};
+    share = connection.get("docs", docID);
+    share.subscribe((error) => {
+      if (error) {
+        logger.warn(`could not subscribe to doc error ${error}`);
+      }
+    });
+    docStore[docID].share = share;
+    docStore[docID].clients = {};
+    docStore[docID].presence = connection.getDocPresence("docs", docID);
   }
+  const presence = doc.presence;
+  const localPresence = presence.create(clientID);
+
   // sse headers
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -241,55 +247,32 @@ exports.handleDocConnect = (req, res, next) => {
     'Cache-Control': 'no-cache',
   };
   res.writeHead(200, headers);
-  // add client to our jank ass data structure
-  localPresenceStore[clientID] = {
-    presence: localPresence,
-  };
 
-  const writeOpResult = (op, source) => {
-    if (op.ops) op = op.ops // because sharedb is stupid
-    let data = `data: ${JSON.stringify(op)}\n\n`;
-    if (source.clientID == clientID) {
-      data = `data: ${JSON.stringify({ ack: source.op })}\n\n`;
-    }
-    res.write(data);
-  };
+  // Get content of document from the mapping.
+  res.write(`data: ${JSON.stringify({content: doc.share.data.ops})}\n\n`);
 
-  // subscribe to doc and listen for transformed ops
-  doc.subscribe((err) => {
-    if (err) res.json({ error: true, message: err });
-    logger.info(`doc.data in doc.subscribe: ${JSON.stringify(doc.data)}`);
-    let data = `data: ${JSON.stringify({
-      content: doc.data.ops,
-      version: docVersion,
-    })}\n\n`; // can switch bw doc.version and docVersion
-    res.write(data);
-    doc.on('op', writeOpResult);
-  });
+  // Store response object as a client.
+  doc.clients[clientID] = {res};
 
-  // handle presence updates from sharedb
-  /*
+  // Listen for presence
   presence.subscribe()
-  backend.use('sendPresence', (context, next) => {
-    // check presence id matches docID
-    logger.info(`context.presence.d: ${docID}`) // p sure .d is docID, need to find out tho
-    if (context.presence.d !== docID) return 
-    let data = `data: ${JSON.stringify({presence: {id: context.presence.id, cursor: context.presence.p }})}\n\n`
-    res.write(data)
+  presence.on('receive', function(id, cursor) {
+    if (id != clientID) {
+      res.write(`data ${JSON.stringify({presence: {id: id, cursor: cursor}})}\n\n`);
+    }
   });
-  */
-  // if nothing is going on, update the index
-  doc.whenNothingPending(() => {
-    updateIndex(doc, docID)
-  })
 
+  // Closing handlers.
   req.on('close', (msg) => {
     logger.warn(`request closed. msg=${msg}`)
-    // presence.destroy()
-    doc.removeListener('op', writeOpResult); 
-    doc.destroy()
-    delete localPresenceStore[clientID]
-    delete docVersionMapping[docID]
+    localPresence.submit({cursor: null}, function(err) {
+      if (err) throw err;
+    });
+    localPresence.destroy();
+    delete doc.clients[clientID];
+    if (doc.clients == {}) {
+      delete doc;
+    }
   });
 };
 
@@ -300,44 +283,47 @@ exports.handleDocConnect = (req, res, next) => {
  * @param req.body {version, op}
  * @returns req.json: { status }
  */
-exports.handleDocOp = (req, res, next) => {
+exports.handleDocOp = (req, res) => {
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
-  const doc = connection.get('docs', docID);
-  if (docVersionMapping[docID] === undefined) {
-    docVersionMapping[docID] = doc.version;
-    docVersion = doc.version;
-  } else {
-    docVersion = docVersionMapping[docID];
+
+  const doc = docStore[docID];
+  if (doc === undefined) {
+    logger.info("document does not exist");
+    res.json({ status: 'error', message: 'document does not exist.' });
+    return;
   }
-  if (req.body.version < docVersion) {
-    // can switch bw doc.version and docVersion
+  if (req.body.version < doc.share.version) {
+    logger.info(`retry: doc: ${doc.share.version} req: ${req.body.version} client: ${clientID}`);
     res.send(`${JSON.stringify({ status: 'retry' })}`);
     return;
   }
   logger.info('Submitting Op');
   const source = {
     clientID: clientID,
-    op: req.body.op,
   };
-  doc.submitOp(req.body.op, { source: source });
-  docVersionMapping[docID] = docVersionMapping[docID] + 1;
-  // periodically update index 
-  /*
-  const lastTimestamp = lastUpdated[docID];
-  const currTime = Date.now() / 1000;
-  if ((currTime - lastTimestamp) >= 10) {
-    updateIndex(doc, docID);
-    lastUpdated[docID] = currTime;
-  }
-  */
-   
-  const updateFrequency = 1; // lower = more frq update
-  if (!(docVersion % updateFrequency)) {
+
+  doc.share.submitOp(req.body.op, { source: source }, (error) => {
+    if (error !== undefined) {
+      res.json({status: 'error', message: error});
+    } else {
+      // Write to our source.
+      doc.clients[clientID].res.write(`data: ${JSON.stringify({ack: req.body.op})}\n\n`);
+      // Write to the rest of them.
+      let clis = Object.keys(doc.clients);
+      for (let i = 0; i < clis.length; i++) {
+        if(clis[i] != clientID)
+          doc.clients[clis[i]].res.write(`data: ${JSON.stringify(req.body.op)}\n\n`);
+      }
+    }
+  });
+
+  const updateFrequency = 15 // lower = more frq update
+  if (!(doc.share.version % updateFrequency)) {
     logger.info("Updating document index.");
-    updateIndex(doc, docID);
+    updateIndex(doc.share.data, docID);
   }
-  
+
   res.send(`${JSON.stringify({ status: 'ok' })}`);
 };
 
@@ -349,17 +335,22 @@ exports.handleDocOp = (req, res, next) => {
  * @returns req.json: {}
  * */
 exports.handleDocPresence = (req, res, next) => {
-  // no longer doing hacky presence business
-  // but if necessary feel like we can go back to it
-  // slim chance Ferdman makes presence grading stricter
-  const { index, length } = req.body;
+  const docID = req.params.UID;
   const clientID = req.params.UID;
-  const localPresence = localPresenceStore[clientID].presence
-  const range = {
+  const { index, length } = req.body;
+
+  const doc = docStore[docID];
+  if (!(doc != undefined && doc.presence === undefined)) {
+    res.json({error: true, message: "presence endpoint called without any document created."});
+  }
+
+  const localPresence = docStore[docID].presence.create(clientID)
+  const cursor = {
     index,
     length,
   };
-  localPresence.submit(range, function (err) {
+
+  localPresence.submit(cursor, function (err) {
     if (err) throw err;
     logger.info("submitted presence to sharedb")
   });
@@ -411,6 +402,16 @@ exports.handleDocGet = (req, res, next) => {
         }
       });
     }});
+  doc.subscribe((error) => {
+    if (error) {
+      logger.warn(`could not subscribe to doc error ${error}`);
+    }
+  });
+
+  docStore[docID] = {};
+  docStore[docID].share = doc;
+  docStore[docID].clients = {};
+  docStore[docID].presence = connection.getDocPresence("docs", docID);
 
    res.json({ docid: `${docID}` });
 };
