@@ -6,6 +6,7 @@ const httpProxy = require('http-proxy');
 const { logger } = require('./logger');
 const { authSession, handleAddUser, handleLogin, handleLogout, handleVerify } = require('./auth');
 const { handleMediaUpload, handleMediaUploadNext, handleMediaAccess } = require('./media');
+const { createIndex, handleDeleteIndex, handleIndexSearch, handleIndexSuggest } = require('./indexing');
 
 const app = express();
 app.use(cors());
@@ -107,7 +108,21 @@ app.post(
 );
 app.get('/media/access/:MEDIAID', handleMediaAccess);
 
-app.all('/index/*', documentProxy);
+// Im putting this back temporarily, since index needs to be authorized.
+const isAuth = (req, res, next) => {
+  if (req.session.isAuth) {
+    next();
+  } else {
+    console.log('not logged in!');
+    res.redirect('/');
+  }
+};
+
+createIndex();
+app.get('/index/search', isAuth, handleIndexSearch);
+app.get('/index/suggest', isAuth, handleIndexSuggest);
+app.post('/index/deleteIndex', isAuth, handleDeleteIndex);
+
 // Next, parse the body if we are going to users.
 app.use("/users/*", express.json({limit: "25mb" }));
 app.use("/users/*", express.urlencoded({ extended: true }));

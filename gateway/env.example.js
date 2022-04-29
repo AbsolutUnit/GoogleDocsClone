@@ -8,6 +8,7 @@ module.exports = {
   SMTP_NAME: '',
   CSE_356_ID: '',
   PORT: 8080,
+  ELASTICSEARCH_URI: '',
   DOCUMENT_SHARDS: [
     // IPs
   ],

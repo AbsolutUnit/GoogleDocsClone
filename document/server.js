@@ -8,7 +8,6 @@ const { logger } = require('./logger')
 
 const docHandlers = require('./docHandlers')
 const homeHandlers = require('./homeHandlers')
-const indexHandlers = require('./indexHandlers')
 
 
 // session storage
@@ -27,8 +26,6 @@ const store = new MongoDBSession({
   uri: mongoURI,
   collection: 'users', 
 });
-
-indexHandlers.createIndex()
 
 // server setup & middleware
 const app = express();
@@ -66,15 +63,6 @@ app.post('/doc/op/:DOCID/:UID', docHandlers.handleDocOp);
 app.post('/doc/presence/:DOCID/:UID', docHandlers.handleDocPresence);
 app.get('/doc/get/:DOCID/:UID', docHandlers.handleDocGet);
 app.get('/home', homeHandlers.handleHome);
-app.get('/index/search', indexHandlers.handleSearch)
-app.get('/index/suggest', indexHandlers.handleSuggest) 
-// app.use('/', express.static('/root/finaljs/static'));
-app.post('/index/deleteIndex', (req,res) => {
-    indexHandlers.deleteIndex();
-    res.write('index deleted');
-    res.end();
-    logger.info('called deleteIndex')
-});
 // TODO: new endpoints
 
 const port = process.env["PORT"];
