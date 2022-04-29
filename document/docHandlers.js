@@ -308,12 +308,14 @@ exports.handleDocOp = (req, res) => {
       res.json({status: 'error', message: error});
     } else {
       // Write to our source.
-      doc.clients[clientID].res.write(`data: ${JSON.stringify({ack: req.body.op})}\n\n`);
-      // Write to the rest of them.
-      let clis = Object.keys(doc.clients);
-      for (let i = 0; i < clis.length; i++) {
-        if(clis[i] != clientID)
-          doc.clients[clis[i]].res.write(`data: ${JSON.stringify(req.body.op)}\n\n`);
+      if (doc.clients[clientID] !== undefined) {
+        doc.clients[clientID].res.write(`data: ${JSON.stringify({ack: req.body.op})}\n\n`);
+        // Write to the rest of them.
+        let clis = Object.keys(doc.clients);
+        for (let i = 0; i < clis.length; i++) {
+          if(clis[i] != clientID)
+            doc.clients[clis[i]].res.write(`data: ${JSON.stringify(req.body.op)}\n\n`);
+        }
       }
     }
   });
