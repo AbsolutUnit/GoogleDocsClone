@@ -58,9 +58,6 @@ app.use((req, res, next) => {
 });
 
 // endpoints
-app.get('/', (req, res) => {
-    res.sendFile('/root/final/static/login.html');
-  });
 app.post('/collection/create', docHandlers.handleCreate);
 app.post('/collection/delete', docHandlers.handleDelete);
 app.get('/collection/list', docHandlers.handleList);

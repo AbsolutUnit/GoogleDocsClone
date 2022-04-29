@@ -95,7 +95,9 @@ app.all('/collection/delete', express.json(), collectionDeleteProxy);
 
 app.all('/media/*', documentProxy);
 app.all('/index/*', documentProxy);
-app.all('/', documentProxy);
+app.get('/', (_, res) => {
+    res.sendFile('/root/final/static/login.html');
+  });
 
 // Next, parse the body if we are going to users.
 app.use("/users/*", express.json({limit: "25mb" }));
