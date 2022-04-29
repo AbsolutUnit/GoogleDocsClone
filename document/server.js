@@ -61,12 +61,6 @@ app.use((req, res, next) => {
 app.post('/collection/create', docHandlers.handleCreate);
 app.post('/collection/delete', docHandlers.handleDelete);
 app.get('/collection/list', docHandlers.handleList);
-app.post(
-  '/media/upload/',
-  mediaHandlers.upload.single('file'),
-  mediaHandlers.handleUpload
-);
-app.get('/media/access/:MEDIAID', mediaHandlers.handleAccess);
 app.get('/doc/edit/:DOCID', docHandlers.handleDocEdit);
 app.get('/doc/connect/:DOCID/:UID', docHandlers.handleDocConnect);
 app.post('/doc/op/:DOCID/:UID', docHandlers.handleDocOp);

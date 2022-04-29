@@ -9,13 +9,13 @@ let mimeMapping = new Map();
 
 const storage = multer.diskStorage({
   destination: require.main?.path + "/media/uploads/",
-  filename: (req, file, cb) => {
+  filename: (_, file, cb) => {
     let mediaID = parseInt(Math.random() * 1000000000).toString();
     cb(null, mediaID + path.extname(file.originalname));
   },
 });
 
-exports.upload = multer({ storage });
+exports.handleMediaUpload = multer({ storage });
 
 /**
  * Upload a media file to the server, so that it can be accessed later.
@@ -23,7 +23,7 @@ exports.upload = multer({ storage });
  * @param req.file the file to upload
  * @return req.json: { mediaId }
  */
-exports.handleUpload = (req, res, next) => {
+exports.handleMediaUploadNext = (req, res) => {
   let ext = req.file.filename.split('.').pop();
   logger.info(`File for Media: ${req.file !== null}`);
   if (ext != 'png' && ext != 'jpeg' && ext != 'jpg' && ext != 'gif') {
@@ -40,7 +40,7 @@ exports.handleUpload = (req, res, next) => {
  *
  * @returns the media.
  */
-exports.handleAccess = (req, res, next) => {
+exports.handleMediaAccess = (req, res, next) => {
   const mediaID = req.params.MEDIAID;
   let filePath = pathMapping.get(mediaID);
   res.header('Content-Type', mimeMapping.get(mediaID));

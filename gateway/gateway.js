@@ -7,6 +7,7 @@ const { Snowflake } = require('nodejs-snowflake');
 
 const { logger } = require('./logger');
 const { authStore, handleAddUser, handleLogin, handleLogout, handleVerify } = require('./auth');
+const { handleMediaUpload, handleMediaUploadNext, handleMediaAccess } = require('./media');
 
 const app = express();
 app.use(cors());
@@ -55,6 +56,11 @@ app.use(
 // }
 // app.use(logResponseBody);
 
+app.get('/', (_, res) => {
+    res.sendFile('/root/final/static/login.html');
+  });
+
+
 // Now, if it needs to be proxied, proxy it.
 
 const proxy = httpProxy.createProxyServer();
@@ -93,12 +99,14 @@ function collectionDeleteProxy(req, res) {
 }
 app.all('/collection/delete', express.json(), collectionDeleteProxy);
 
-app.all('/media/*', documentProxy);
-app.all('/index/*', documentProxy);
-app.get('/', (_, res) => {
-    res.sendFile('/root/final/static/login.html');
-  });
+app.post(
+  '/media/upload/',
+  handleMediaUpload.single('file'),
+  handleMediaUploadNext
+);
+app.get('/media/access/:MEDIAID', handleMediaAccess);
 
+app.all('/index/*', documentProxy);
 // Next, parse the body if we are going to users.
 app.use("/users/*", express.json({limit: "25mb" }));
 app.use("/users/*", express.urlencoded({ extended: true }));
