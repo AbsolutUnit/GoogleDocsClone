@@ -4,7 +4,7 @@ module.exports = {
   CSE_356_ID: '',
   MONGO_URI: 'mongodb://',
   AUTH_HOST: '',
-  PORT: "8080",
-  SHAREDB_PORT: "8079"
+  PORT: 8080,
   ELASTICSEARCH_URI: '',
+  SHAREDB_PORT: 8079
 };
