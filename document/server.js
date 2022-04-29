@@ -8,7 +8,6 @@ const { logger } = require('./logger')
 
 const docHandlers = require('./docHandlers')
 const homeHandlers = require('./homeHandlers')
-const mediaHandlers = require('./mediaHandlers')
 const indexHandlers = require('./indexHandlers')
 
 
