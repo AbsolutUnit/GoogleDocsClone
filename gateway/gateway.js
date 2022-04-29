@@ -1,11 +1,10 @@
 const express = require('express');
 const cors = require('cors');
-const session = require('express-session');
 const process = require('process');
 const httpProxy = require('http-proxy');
 
 const { logger } = require('./logger');
-const { authStore, handleAddUser, handleLogin, handleLogout, handleVerify } = require('./auth');
+const { authSession, handleAddUser, handleLogin, handleLogout, handleVerify } = require('./auth');
 const { handleMediaUpload, handleMediaUploadNext, handleMediaAccess } = require('./media');
 
 const app = express();
@@ -19,15 +18,8 @@ app.use((_, res, next) => {
     res.setHeader('X-CSE356', process.env['CSE_356_ID']);
     next();
 });
-// Add the session middleware, since this effects all requests.
-app.use(
-    session({ // TODO: not sure if auth session middleware dif from document session middleware
-      secret: 'some key', // TODO: .env this?
-      resave: false,
-      saveUninitialized: false,
-      store: authStore,
-    })
-);
+// Add the auth session middleware, since this effects all requests.
+app.use(authSession);
 
 // function logResponseBody(req, res, next) {
 //   var oldWrite = res.write,

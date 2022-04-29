@@ -1,6 +1,7 @@
 const nodemailer = require('nodemailer');
 const { v4: uuidv4 } = require('uuid');
 const process = require('process');
+const session = require('express-session');
 const MongoDBSession = require('connect-mongodb-session')(session);
 const mongoose = require('mongoose');
 
@@ -22,6 +23,15 @@ const authStore = new MongoDBSession({
   collection: 'users',
 });
 const UserModel = require('./models/User');
+
+const authSession =
+    session({
+      secret: 'some key', // TODO: .env this?
+      resave: false,
+      saveUninitialized: false,
+      store: authStore,
+    });
+
 
 /**
  * Send an email to a recipient for username, with key.
@@ -151,4 +161,4 @@ const handleVerify = (req, res) => {
   res.json({ ok: true, message: 'User verified.' });
 };
 
-module.exports = {authStore, handleAddUser, handleLogin, handleLogout, handleVerify}
+module.exports = {authSession, authStore, handleAddUser, handleLogin, handleLogout, handleVerify}
