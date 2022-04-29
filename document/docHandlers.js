@@ -22,7 +22,7 @@ const wss = new WebSocket.Server({ port: process.env['SHAREDB_PORT'] });
 wss.on('connection', function (ws) {
   var stream = new WebSocketJSONStream(ws);
   backend.listen(stream);
-logger.info("ShareDB listening on 8082")
+  logger.info(`ShareDB listening on ${process.env['SHAREDB_PORT']}`)
 });
 const connection = backend.connect();
 
