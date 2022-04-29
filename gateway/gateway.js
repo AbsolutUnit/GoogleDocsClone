@@ -3,7 +3,6 @@ const cors = require('cors');
 const session = require('express-session');
 const process = require('process');
 const httpProxy = require('http-proxy');
-const { Snowflake } = require('nodejs-snowflake');
 
 const { logger } = require('./logger');
 const { authStore, handleAddUser, handleLogin, handleLogout, handleVerify } = require('./auth');
