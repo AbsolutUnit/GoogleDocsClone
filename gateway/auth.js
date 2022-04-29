@@ -102,7 +102,7 @@ const handleAddUser = async (req, res) => {
  * @param req.body { email, password }
  * @returns res.json: { name }
  */
-const handleLogin = (req, res) => {
+const handleLogin = async (req, res) => {
   const { email, password } = req.body;
   const user = await UserModel.findOne({ email });
 
@@ -141,7 +141,7 @@ const handleLogout = (req, res) => {
  * @param req.query {name, key}
  * @returns: res.json: {}
  */
-const handleVerify = (req, res) => {
+const handleVerify = async (req, res) => {
   const name = decodeURI(req.query.name);
   const key = req.query.key;
   logger.info('name', name)

@@ -77,7 +77,7 @@ app.post('/index/deleteIndex', (req,res) => {
 });
 // TODO: new endpoints
 
-const port = process.env['DOC_PORT']
+const port = process.env["PORT"];
 app.listen(port, () => {
   logger.info(`Listening on port ${port}`);
 });

@@ -7,6 +7,7 @@ module.exports = {
   SMTP_PASS: '',
   SMTP_NAME: '',
   CSE_356_ID: '',
+  PORT: 8080,
   DOCUMENT_SHARDS: [
     // IPs
   ],

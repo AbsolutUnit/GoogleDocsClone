@@ -118,7 +118,7 @@ app.post('/users/login', handleLogin);
 app.post('/users/logout', handleLogout);
 app.get('/users/verify', handleVerify);
 
-const port = 8080
+const port = process.env["PORT"];
 app.listen(port, () => {
   logger.info(`Listening on port ${port}`);
 });
