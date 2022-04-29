@@ -7,10 +7,8 @@ const ShareDB = require('sharedb');
 const WebSocketJSONStream = require('@teamwork/websocket-json-stream');
 const indexHandlers = require('./indexHandlers')
 const DocMapModel = require('./models/Document');
+const {v4: uuidv4} = require('uuid');
 const { logger } = require('./logger')
-
-const { Snowflake } = require("nodejs-snowflake");
-const snowflakeFactory = new Snowflake({custom_epoch: Date(2022, 1, 1), instance_id: process.env["SHARD_ID"]});
 
 const mongoURI = process.env["MONGO_URI"];
 const db = require('sharedb-mongo')(mongoURI);
@@ -392,7 +390,8 @@ exports.handleDocGet = (req, res, next) => {
  */
  exports.handleCreate = (req, res, next) => {
   const { name: name } = req.body;
-  const docID = snowflakeFactory.getUniqueID();
+  // create the document ID to
+  const docID = `${process.env["SHARD_ID"]}-${process.env["INSTANCE_ID"]}-${uuidv4()}`;
   let doc = connection.get('docs', docID);
   doc.fetch(async function (err) {
     if (err) throw err;

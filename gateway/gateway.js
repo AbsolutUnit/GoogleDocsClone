@@ -65,12 +65,12 @@ app.get('/', (_, res) => {
 
 const proxy = httpProxy.createProxyServer();
 const docServerCount = process.env["DOCUMENT_SHARDS"].length;
-const docServerChoice = (docID) => Snowflake.instanceIDFromID(docID);
+const docServerChoice = (docID) => docID.substring(0, docID.indexOf("-"));
 
-// Proxy rules: proxy to the shard id, then proxy after with nginx on the random part of the snowflake.
+// Proxy rules: proxy to the shard id, then proxy after with nginx on a smaller section of the shard id.
 function documentProxy(req, res) {
   if (req.session.isAuth) {
-    target = process.env["DOCUMENT_SHARDS"][docServerChoice(parseInt(req.params.docID))];
+    target = process.env["DOCUMENT_SHARDS"][parseInt(docServerChoice(req.params.docID))];
     proxy.web(req, res, {target: target});
   } else {
     logger.info("Unauthenticated.");
@@ -93,7 +93,7 @@ app.all('/collection/create', collectionCreateProxy);
 // Like document proxy, but we need to get the document ID from the body.
 function collectionDeleteProxy(req, res) {
   if (req.session.isAuth) {
-    target = process.env["DOCUMENT_SHARDS"][docServerChoice(parseInt(req.body.docId))];
+    target = process.env["DOCUMENT_SHARDS"][parseInt(docServerChoice(req.body.docId))];
     proxy.web(req, res, {target: target});
   }
 }
