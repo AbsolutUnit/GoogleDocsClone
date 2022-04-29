@@ -1,4 +1,3 @@
-// require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const session = require('express-session');
@@ -10,12 +9,12 @@ const { authStore, handleAddUser, handleLogin, handleLogout, handleVerify } = re
 
 const app = express();
 app.use(cors());
-app.use((req, res, next) => {
+app.use((req, _, next) => {
   logger.info(`req.url: ${req.url}`);
   next();
 });
 // Next, add the CSE 356 header.
-app.use((req, res, next) => {
+app.use((_, res, next) => {
     res.setHeader('X-CSE356', process.env['CSE_356_ID']);
     next();
 });
@@ -29,33 +28,34 @@ app.use(
     })
 );
 
-function logResponseBody(req, res, next) {
-  var oldWrite = res.write,
-      oldEnd = res.end;
+// function logResponseBody(req, res, next) {
+//   var oldWrite = res.write,
+//       oldEnd = res.end;
 
-  var chunks = [];
+//   var chunks = [];
 
-  res.write = function (chunk) {
-    chunks.push(chunk);
+//   res.write = function (chunk) {
+//     chunks.push(chunk);
 
-    return oldWrite.apply(res, arguments);
-  };
+//     return oldWrite.apply(res, arguments);
+//   };
 
-  res.end = function (chunk) {
-    if (chunk)
-      chunks.push(chunk);
+//   res.end = function (chunk) {
+//     if (chunk)
+//       chunks.push(chunk);
 
-    var body = Buffer.concat(chunks).toString('utf8');
-    logger.info(`response: ${req.path} ${JSON.stringify(body)}`);
+//     var body = Buffer.concat(chunks).toString('utf8');
+//     logger.info(`response: ${req.path} ${JSON.stringify(body)}`);
 
-    oldEnd.apply(res, arguments);
-  };
+//     oldEnd.apply(res, arguments);
+//   };
 
-  next();
-}
+//   next();
+// }
 // app.use(logResponseBody);
 
 // Now, if it needs to be proxied, proxy it.
+
 const proxy = httpProxy.createProxyServer();
 function documentProxy(req, res) {
   const urlArray = req.url.split('/')

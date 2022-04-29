@@ -1,10 +1,11 @@
-// require('dotenv').config();
 const nodemailer = require('nodemailer');
 const { v4: uuidv4 } = require('uuid');
 const process = require('process');
 const MongoDBSession = require('connect-mongodb-session')(session);
 const mongoose = require('mongoose');
+
 const { logger } = require('./logger');
+
 // db setup
 const mongoURI = process.env["MONGO_URI"];
 mongoose
@@ -13,7 +14,7 @@ mongoose
     //useCreateIndex: true,
     useUnifiedTopology: true,
   })
-  .then((res) => {
+  .then(() => {
     logger.info('MongoDB connected');
   });
 const authStore = new MongoDBSession({
@@ -49,7 +50,7 @@ async function sendMail(recipient, user, key) { // chris: why is this async?
     subject: 'Doogle Gocs Verification Email',
     text: link,
   };
-  transporter.sendMail(mailOptions, function (error, info) {
+  transporter.sendMail(mailOptions, function (error) {
     if (error) {
       logger.info('failed to send email: ', error);
     }
@@ -91,7 +92,7 @@ const handleAddUser = async (req, res) => {
  * @param req.body { email, password }
  * @returns res.json: { name }
  */
-const handleLogin = async (req, res, next) => {
+const handleLogin = (req, res) => {
   const { email, password } = req.body;
   const user = await UserModel.findOne({ email });
 
@@ -115,7 +116,7 @@ const handleLogin = async (req, res, next) => {
  * @param req.body {}
  * @returns res.json: {}
  */
-const handleLogout = (req, res, next) => {
+const handleLogout = (req, res) => {
   req.session.destroy((err) => {
     if (err) {
       logger.info(err);
@@ -130,7 +131,7 @@ const handleLogout = (req, res, next) => {
  * @param req.query {name, key}
  * @returns: res.json: {}
  */
-const handleVerify = async (req, res, next) => {
+const handleVerify = (req, res) => {
   const name = decodeURI(req.query.name);
   const key = req.query.key;
   logger.info('name', name)
