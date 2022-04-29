@@ -99,6 +99,16 @@ function collectionDeleteProxy(req, res) {
 }
 app.all('/collection/delete', express.json(), collectionDeleteProxy);
 
+// We send collection list to the server that has created a document least recently.
+// We guess this server has the least load, and that server checks the database for the top 10.
+function collectionListProxy(req, res) {
+  if (req.session.isAuth) {
+    target = process.env["DOCUMENT_SHARDS"][(collectionsMade + 1) % docServerCount];
+    proxy.web(req, res, {target: target});
+  }
+}
+app.all('/collection/list', collectionListProxy);
+
 app.post(
   '/media/upload/',
   handleMediaUpload.single('file'),
