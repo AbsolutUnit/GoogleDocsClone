@@ -18,11 +18,11 @@ const backend = new ShareDB({
   presence: true,
   doNotForwardSendPresenceErrorsToClient: true,
 });
-const wss = new WebSocket.Server({ port: process.env['SHAREDB_PORT'] });
+const wss = new WebSocket.Server({ port: process.env['PORT'] + 100 });
 wss.on('connection', function (ws) {
   var stream = new WebSocketJSONStream(ws);
   backend.listen(stream);
-  logger.info(`ShareDB listening on ${process.env['SHAREDB_PORT']}`)
+  logger.info(`ShareDB listening on ${process.env['PORT'] + 100}`)
 });
 const connection = backend.connect();
 
