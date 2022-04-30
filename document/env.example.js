@@ -6,5 +6,6 @@ module.exports = {
   AUTH_HOST: '',
   PORT: 8080,
   ELASTICSEARCH_URI: '',
+  SHARD_ID: 1,
   SHAREDB_PORT: 8079
 };
