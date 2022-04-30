@@ -4,7 +4,7 @@ import { check, sleep } from 'k6';
 // if we want node modules here we need a bundler...
 
 export const options = {
-  vus: 500,
+  vus: 1,
   duration:'1m30s',
   // stages: [
   //   { duration: '30s', target: 20 },
@@ -103,10 +103,10 @@ export default function () {
   }
 
   // index endpoints
-  res = http.get(`${searchURL}?q=VU`)
-  check(res, {'got search results': (r) => !!r.body}) // check nonempty body for now
-  console.log('search res.body ', res.body)
-  res = http.get(`${suggestURL}?q=VU&1`) // VU&10, VU&11, etc. all possible matches that should be in there (assumeing numOps big enuf)
-  check(res, {'got suggestions': (r) => !!r.body})
-  console.log('suggest res.body ', res.body)
+  // res = http.get(`${searchURL}?q=VU`)
+  // check(res, {'got search results': (r) => !!r.body}) // check nonempty body for now
+  // console.log('search res.body ', res.body)
+  // res = http.get(`${suggestURL}?q=VU&1`) // VU&10, VU&11, etc. all possible matches that should be in there (assumeing numOps big enuf)
+  // check(res, {'got suggestions': (r) => !!r.body})
+  // console.log('suggest res.body ', res.body)
 }
