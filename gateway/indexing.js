@@ -4,8 +4,10 @@ const { logger } = require('./logger')
 const client = new Client({
   node: process.env["ELASTICSEARCH_URI"],
 });
+logger.warn(`Here's the URI ${process.env["ELASTICSEARCH_URI"]}`);
 
 exports.createIndex = async () => {
+  logger.warn(`The current client is ${JSON.stringify(client)}`);
   if (await client.indices.exists({ index: 'documents' })) {
     logger.warn("Elasticsearch index documents already exists");
     return false;
@@ -58,7 +60,7 @@ function pickSnippet(highlight) {
   if (highlight.text) {
     return highlight.text[0];
   } else if (highlight.name) {
-    return higlight.name[0];
+    return highlight.name[0];
   } else {
     return '';
   }

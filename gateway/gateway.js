@@ -5,7 +5,8 @@ const httpProxy = require('http-proxy');
 const { logger } = require('./logger');
 const { authSession, handleAddUser, handleLogin, handleLogout, handleVerify } = require('./authHandlers');
 const { handleMediaUpload, handleMediaUploadNext, handleMediaAccess } = require('./mediaHandlers');
-const { createIndex, handleDeleteIndex, handleIndexSearch, handleIndexSuggest } = require('./indexHandlers');
+const { createIndex, handleDeleteIndex, handleIndexSearch, handleIndexSuggest }
+= require('./indexing');
 
 const app = express();
 app.use(cors());
@@ -43,7 +44,7 @@ function documentProxy(req, res) {
     logger.warn("Unauthenticated.");
   }
 }
-app.all('/doc/*/:docID/*', documentProxy);
+app.all('/doc/*/:docID/:UID', documentProxy);
 
 // Round robin the collection requests between the document servers.
 let collectionsMade = 0;
