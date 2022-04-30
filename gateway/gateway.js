@@ -56,13 +56,14 @@ app.get('/', (_, res) => {
 // Now, if it needs to be proxied, proxy it.
 
 const proxy = httpProxy.createProxyServer();
-const docServerCount = process.env["DOCUMENT_SHARDS"].length;
+const docServers = process.env["DOCUMENT_SHARDS"].split(",");
+const docServerCount = docServers.length;
 const docServerChoice = (docID) => docID.substring(0, docID.indexOf("-"));
 
 // Proxy rules: proxy to the shard id, then proxy after with nginx on a smaller section of the shard id.
 function documentProxy(req, res) {
   if (req.session.isAuth) {
-    target = process.env["DOCUMENT_SHARDS"][parseInt(docServerChoice(req.params.docID))];
+    target = docServers[parseInt(docServerChoice(req.params.docID))];
     proxy.web(req, res, {target: target});
   } else {
     logger.info("Unauthenticated.");
@@ -71,11 +72,11 @@ function documentProxy(req, res) {
 app.all('/doc/*/:docID/*', documentProxy);
 
 // Round robin the collection requests between the document servers.
-const collectionsMade = 0;
+var collectionsMade = 0;
 function collectionCreateProxy(req, res) {
   if (req.session.isAuth) {
-    target = process.env["DOCUMENT_SHARDS"][collectionsMade % docServerCount];
-    logger.info(`Collection request: redirecting to ${target}`)
+    target = docServers[collectionsMade % docServerCount];
+    logger.info(`Collection request: redirecting to ${target}`);
     collectionsMade++;
     proxy.web(req, res, {target: target});
   }
@@ -85,7 +86,7 @@ app.all('/collection/create', collectionCreateProxy);
 // Like document proxy, but we need to get the document ID from the body.
 function collectionDeleteProxy(req, res) {
   if (req.session.isAuth) {
-    target = process.env["DOCUMENT_SHARDS"][parseInt(docServerChoice(req.body.docId))];
+    target = docServers[parseInt(docServerChoice(req.body.docId))];
     proxy.web(req, res, {target: target});
   }
 }
@@ -95,7 +96,7 @@ app.all('/collection/delete', express.json(), collectionDeleteProxy);
 // We guess this server has the least load, and that server checks the database for the top 10.
 function collectionListProxy(req, res) {
   if (req.session.isAuth) {
-    target = process.env["DOCUMENT_SHARDS"][(collectionsMade + 1) % docServerCount];
+    target = docServers[(collectionsMade + 1) % docServerCount];
     proxy.web(req, res, {target: target});
   }
 }
