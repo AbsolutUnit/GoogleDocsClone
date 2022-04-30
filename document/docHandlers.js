@@ -398,7 +398,7 @@ exports.handleDocGet = (req, res, next) => {
       
       documentMap.save(function (err) {
         if (err) {
-          logger.info(`Errored out on create: ${JSON.stringify(err)}`);
+          logger.error(`Errored out on create: ${JSON.stringify(err)}`);
           res.json({ error: true, message: "couldn't save the document map" });
           return;
         }

@@ -7,7 +7,7 @@ const client = new Client({
 
 exports.createIndex = async () => {
   if (await client.indices.exists({ index: 'documents' })) {
-    logger.info("Elasticsearch index documents already exists");
+    logger.warn("Elasticsearch index documents already exists");
     return false;
   }
   await client.indices.create({

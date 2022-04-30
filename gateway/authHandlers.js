@@ -1,6 +1,5 @@
 const nodemailer = require('nodemailer');
 const { v4: uuidv4 } = require('uuid');
-const process = require('process');
 const session = require('express-session');
 const MongoDBSession = require('connect-mongodb-session')(session);
 const mongoose = require('mongoose');
@@ -62,7 +61,7 @@ async function sendMail(recipient, user, key) { // chris: why is this async?
   };
   transporter.sendMail(mailOptions, function (error) {
     if (error) {
-      logger.info('failed to send email: ', error);
+      logger.error('failed to send email: ', error);
     }
   });
 }
@@ -129,7 +128,7 @@ const handleLogin = async (req, res) => {
 const handleLogout = (req, res) => {
   req.session.destroy((err) => {
     if (err) {
-      logger.info(err);
+      logger.error(err);
       res.json({ error: true, message: 'User not found.' });
     }
   });
