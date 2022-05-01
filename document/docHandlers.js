@@ -18,13 +18,21 @@ const backend = new ShareDB({
   presence: true,
   doNotForwardSendPresenceErrorsToClient: true,
 });
-const wss = new WebSocket.Server({ port: process.env['PORT'] + 100 });
+const wss = new WebSocket.Server({ port: parseInt(process.env['PORT']) + 100 });
 wss.on('connection', function (ws) {
   var stream = new WebSocketJSONStream(ws);
   backend.listen(stream);
-  logger.info(`ShareDB listening on ${process.env['PORT'] + 100}`)
+  logger.info(`ShareDB listening on ${parseInt(process.env['PORT']) + 100}`)
 });
 const connection = backend.connect();
+
+
+/*
+backend.use('submit', (context, next) => {
+  logger.debug('Sharedb backend received submission')
+  next()
+});
+*/
 
 // docStore[docId] = {
 //    share: sharedb.doc,
@@ -32,7 +40,6 @@ const connection = backend.connect();
 //    presence: presence
 // }
 const docStore = {};
-
 /**
  * update elasticsearch index
  * @param {*} doc 
@@ -235,6 +242,7 @@ exports.handleDocConnect = (req, res) => {
     docStore[docID].share = share;
     docStore[docID].clients = {};
     docStore[docID].presence = connection.getDocPresence("docs", docID);
+    docStore[docID].version = share.version;
   }
   const presence = doc.presence;
   const localPresence = presence.create(clientID);
@@ -293,8 +301,10 @@ exports.handleDocOp = (req, res) => {
     res.json({ status: 'error', message: 'document does not exist.' });
     return;
   }
-  if (req.body.version < doc.share.version) {
-    logger.info(`retry: doc: ${doc.share.version} req: ${req.body.version} client: ${clientID}`);
+  logger.info(`(BEFORE OP): doc.version=${doc.version},
+      req.body.version=${req.body.version}`)
+  if (req.body.version < doc.version) {
+    logger.warn(`retry: doc: ${doc.version} req: ${req.body.version} client: ${clientID}`);
     res.send(`${JSON.stringify({ status: 'retry' })}`);
     return;
   }
@@ -302,11 +312,14 @@ exports.handleDocOp = (req, res) => {
   const source = {
     clientID: clientID,
   };
-
+  /*
   doc.share.submitOp(req.body.op, { source: source }, (error) => {
-    if (error !== undefined) {
+    logger.info('submitOp callback')
+    if (error) {
       res.json({status: 'error', message: error});
     } else {
+      doc.version += 1;
+      logger.info(`(AFTER OP): doc.version=${doc.version}`)
       // Write to our source.
       if (doc.clients[clientID] !== undefined) {
         doc.clients[clientID].res.write(`data: ${JSON.stringify({ack: req.body.op})}\n\n`);
@@ -319,9 +332,24 @@ exports.handleDocOp = (req, res) => {
       }
     }
   });
+  */
+
+  // completely bypass sharedb
+  doc.version += 1
+  logger.info(`(AFTER OP): doc.version=${doc.version}`)
+  if (doc.clients[clientID]) {
+    doc.clients[clientID].res.write(`data: ${JSON.stringify({ack: req.body.op})}\n\n`);
+    // Write to the rest of them.
+    let clis = Object.keys(doc.clients);
+    for (let i = 0; i < clis.length; i++) {
+      if(clis[i] != clientID)
+        doc.clients[clis[i]].res.write(`data: ${JSON.stringify(req.body.op)}\n\n`);
+    }
+  }
+    
 
   const updateFrequency = 15 // lower = more frq update
-  if (!(doc.share.version % updateFrequency)) {
+  if (!(doc.version % updateFrequency)) {
     logger.info("Updating document index.");
     updateIndex(doc.share.data, docID);
   }
@@ -414,6 +442,7 @@ exports.handleDocGet = (req, res, next) => {
   docStore[docID].share = doc;
   docStore[docID].clients = {};
   docStore[docID].presence = connection.getDocPresence("docs", docID);
+  docStore[docID].version = 0;
 
    res.json({ docid: `${docID}` });
 };

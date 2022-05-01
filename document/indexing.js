@@ -4,6 +4,7 @@ const { logger } = require('./logger')
 const client = new Client({
   node: process.env["ELASTICSEARCH_URI"],
 });
+logger.debug(`elastic uri: ${process.env['ELASTICSEARCH_URI']}`)
 
 /*
   documents index properties:
@@ -23,18 +24,6 @@ const client = new Client({
   packages: 
    - https://www.npmjs.com/package/quill-delta-to-plaintext
  */
-
-// Kelvin: where is this used???
-exports.analyzeText = async (text) => {
-  const response = await client.indices.analyze({
-      index: 'documents',
-      body: {
-        analyzer: 'my_analyzer',
-        text: text,
-      }
-  });
-  return response;
-};
 
 exports.addDocument = (id, name, text) => {
   client
