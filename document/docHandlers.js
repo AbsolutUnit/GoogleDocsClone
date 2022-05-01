@@ -257,7 +257,7 @@ exports.handleDocConnect = (req, res) => {
   res.writeHead(200, headers);
 
   // Get content of document from the mapping.
-  res.write(`data: ${JSON.stringify({content: doc.share.data.ops})}\n\n`);
+  res.write(`data: ${JSON.stringify({content: doc.share.data.ops, version: doc.version})}\n\n`);
 
   // Store response object as a client.
   doc.clients[clientID] = {res};
@@ -268,6 +268,23 @@ exports.handleDocConnect = (req, res) => {
     if (id != clientID) {
       res.write(`data ${JSON.stringify({presence: {id: id, cursor: cursor}})}\n\n`);
     }
+  });
+
+  doc.share.subscribe((err) => {
+    if (err) res.json({ error: true, message: err });
+    let data = `data: ${JSON.stringify({
+      content: doc.share.data.ops,
+      version: doc.version,
+    })}\n\n`;
+    res.write(data)
+    doc.share.on('op', (op, source) => {
+      if (op.ops) op = op.ops
+      let data = `data: ${JSON.stringify(op)}\n\n`;
+      if (source.clientID == clientID) {
+        data = `data: ${JSON.stringify({ ack: source.op })}\n\n`;
+      }
+      res.write(data)
+    });
   });
 
   // Closing handlers.
@@ -297,11 +314,11 @@ exports.handleDocOp = (req, res) => {
 
   const doc = docStore[docID];
   if (doc === undefined) {
-    logger.info("document does not exist");
+    logger.error("document does not exist");
     res.json({ status: 'error', message: 'document does not exist.' });
     return;
   }
-  logger.info(`(BEFORE OP): doc.version=${doc.version},
+  logger.debug(`(BEFORE OP): doc.version=${doc.version},
       req.body.version=${req.body.version}`)
   if (req.body.version < doc.version) {
     logger.warn(`retry: doc: ${doc.version} req: ${req.body.version} client: ${clientID}`);
@@ -311,7 +328,9 @@ exports.handleDocOp = (req, res) => {
   logger.info('Submitting Op');
   const source = {
     clientID: clientID,
+    op: req.body.op,
   };
+
   /*
   doc.share.submitOp(req.body.op, { source: source }, (error) => {
     logger.info('submitOp callback')
@@ -334,7 +353,12 @@ exports.handleDocOp = (req, res) => {
   });
   */
 
+  doc.share.submitOp(req.body.op, { source: source }); // there is an optional callback, but not using for now
+  doc.version += 1
+  logger.debug(`(AFTER OP): doc.version=${doc.version}`)
+
   // completely bypass sharedb
+  /*
   doc.version += 1
   logger.info(`(AFTER OP): doc.version=${doc.version}`)
   if (doc.clients[clientID]) {
@@ -346,6 +370,7 @@ exports.handleDocOp = (req, res) => {
         doc.clients[clis[i]].res.write(`data: ${JSON.stringify(req.body.op)}\n\n`);
     }
   }
+  */
     
   const updateFrequency = 15 // lower = more frq update
   // will update every time for first few ops

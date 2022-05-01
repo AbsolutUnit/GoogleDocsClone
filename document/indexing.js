@@ -30,6 +30,7 @@ exports.addDocument = (id, name, text) => {
     .index({
       index: 'documents',
       id: id,
+      refresh: true,
       body: {
         name,
         text, 
@@ -48,6 +49,7 @@ exports.updateDocument = async (text, id) => {
   await client.update({
     index: 'documents',
     id: id,
+    refresh : true,
     doc: {
       //TODO: what is the difference between this and script
       text: text,
