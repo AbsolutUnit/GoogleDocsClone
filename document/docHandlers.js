@@ -42,7 +42,7 @@ backend.use('submit', (context, next) => {
 const docStore = {};
 /**
  * update elasticsearch index
- * @param {*} doc 
+ * @param {*} doc - pass thru as doc.data
  * @param {*} docID 
  */
 const updateIndex = async (docData, docID) => {
@@ -347,9 +347,9 @@ exports.handleDocOp = (req, res) => {
     }
   }
     
-
   const updateFrequency = 15 // lower = more frq update
-  if (!(doc.version % updateFrequency)) {
+  // will update every time for first few ops
+  if (doc.version < updateFrequency || !(doc.version % updateFrequency)) {
     logger.info("Updating document index.");
     updateIndex(doc.share.data, docID);
   }
@@ -412,7 +412,7 @@ exports.handleDocGet = (req, res, next) => {
  exports.handleCreate = (req, res, next) => {
   const { name: name } = req.body;
   // create the document ID to
-  const docID = `${process.env["SHARD_ID"]}-${process.env["INSTANCE_ID"]}-${uuidv4()}`;
+  const docID = `${process.env["SHARD_ID"]}-${process.env["PORT"]}-${uuidv4()}`;
   let doc = connection.get('docs', docID);
   doc.fetch(async function (err) {
     if (err) throw err;

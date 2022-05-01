@@ -5,21 +5,39 @@ module.exports = {
   apps: [{
     name: "gateway",
     script: "./gateway/gateway.js",
-    env_production: gatewayEnv,
+    env: gatewayEnv,
     instances: 1,
     autorestart: false,
     log_date_format: "YYYY-MM-DD HH:mm Z"
   },
   {
-    name: "doc",
+    name: "doc0",
     script: "./document/server.js",
-    env_production: documentEnv,
-    increment_var: "PORT",
-    instance_var: "INSTANCE_ID",
-    instances: 4,
+    env: { ...documentEnv, PORT: 8080 }, // PORT must come after spread in order to update
     autorestart: false,
     log_date_format: "YYYY-MM-DD HH:mm Z"
-  }
+  },
+  {
+    name: "doc1",
+    script: "./document/server.js",
+    env: { ...documentEnv, PORT: 8081 },
+    autorestart: false,
+    log_date_format: "YYYY-MM-DD HH:mm Z"
+  },
+  {
+    name: "doc2",
+    script: "./document/server.js",
+    env: { ...documentEnv, PORT: 8082 },
+    autorestart: false,
+    log_date_format: "YYYY-MM-DD HH:mm Z"
+  },
+  {
+    name: "doc3",
+    script: "./document/server.js",
+    env: { ...documentEnv, PORT: 8083 },
+    autorestart: false,
+    log_date_format: "YYYY-MM-DD HH:mm Z"
+  },
   ]
 }
 
@@ -34,3 +52,4 @@ module.exports = {
   silly: 6
 }
 */
+
