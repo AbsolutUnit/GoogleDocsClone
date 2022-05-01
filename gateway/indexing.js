@@ -95,7 +95,7 @@ exports.handleIndexSearch = async (req, res) => {
       response.hits.hits.forEach(hit => {
         let { _source, highlight, ...params } = hit;
         endpointResponse.push({
-          id: params._id,
+          docid: params._id,
           name: _source.name,
           snippet: pickSnippet(highlight),
         });
