@@ -36,7 +36,7 @@ app.use((req, res, next) => {
 });
 app.use(express.json({limit: "25mb" }));
 app.use((req, res, next) => {
-  logger.info(`Server Request Body: ${JSON.stringify(req.body)}`);
+  logger.debug(`Server Request Body: ${JSON.stringify(req.body)}`);
   next();
 });
 app.use(express.urlencoded({ extended: true }));

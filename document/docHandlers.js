@@ -44,6 +44,7 @@ const docStore = {};
  * update elasticsearch index
  * @param {*} doc - pass thru as doc.data
  * @param {*} docID 
+ * TODO: can def optimize this a LOT
  */
 const updateIndex = async (docData, docID) => {
     deltaOps = docData.ops;
@@ -51,7 +52,7 @@ const updateIndex = async (docData, docID) => {
     const html = converter.convert();
     const text = convert(html)
     indexing.updateDocument(text, docID)
-    logger.info('INDEX UPDATED');
+    logger.debug('INDEX UPDATED');
 }
 
 /**
@@ -234,11 +235,6 @@ exports.handleDocConnect = (req, res) => {
   if (doc === undefined) {
     docStore[docID] = {};
     share = connection.get("docs", docID);
-    share.subscribe((error) => {
-      if (error) {
-        logger.warn(`could not subscribe to doc error ${error}`);
-      }
-    });
     docStore[docID].share = share;
     docStore[docID].clients = {};
     docStore[docID].presence = connection.getDocPresence("docs", docID);
@@ -318,7 +314,7 @@ exports.handleDocOp = (req, res) => {
     res.json({ status: 'error', message: 'document does not exist.' });
     return;
   }
-  logger.debug(`(BEFORE OP): doc.version=${doc.version},
+  logger.silly(`(BEFORE OP): doc.version=${doc.version},
       req.body.version=${req.body.version}`)
   if (req.body.version < doc.version) {
     logger.warn(`retry: doc: ${doc.version} req: ${req.body.version} client: ${clientID}`);
@@ -338,7 +334,7 @@ exports.handleDocOp = (req, res) => {
       res.json({status: 'error', message: error});
     } else {
       doc.version += 1;
-      logger.info(`(AFTER OP): doc.version=${doc.version}`)
+      logger.silly(`(AFTER OP): doc.version=${doc.version}`)
       // Write to our source.
       if (doc.clients[clientID] !== undefined) {
         doc.clients[clientID].res.write(`data: ${JSON.stringify({ack: req.body.op})}\n\n`);
@@ -355,7 +351,7 @@ exports.handleDocOp = (req, res) => {
 
   doc.share.submitOp(req.body.op, { source: source }); // there is an optional callback, but not using for now
   doc.version += 1
-  logger.debug(`(AFTER OP): doc.version=${doc.version}`)
+  logger.silly(`(AFTER OP): doc.version=${doc.version}`)
 
   // completely bypass sharedb
   /*
@@ -372,9 +368,10 @@ exports.handleDocOp = (req, res) => {
   }
   */
     
-  const updateFrequency = 15 // lower = more frq update
+  const updateFrequency = 25; // lower = more frq update
+  const initialUpdates = 3;
   // will update every time for first few ops
-  if (doc.version < updateFrequency || !(doc.version % updateFrequency)) {
+  if (doc.version < initialUpdates || !(doc.version % updateFrequency)) {
     logger.info("Updating document index.");
     updateIndex(doc.share.data, docID);
   }
@@ -421,6 +418,7 @@ exports.handleDocGet = (req, res, next) => {
   const docID = req.params.DOCID;
   const clientID = req.params.UID;
   // NOTE: notice there is no doc.fetch here...
+  // TODO: optimize!
   const doc = connection.get('docs', docID);
   const deltaOps = doc.data.ops;
   const converter = new QuillDeltaToHtmlConverter(deltaOps, {});
@@ -517,6 +515,7 @@ exports.handleList = (req, res, next) => {
  *
  * @param callback
  * @returns none, but calls the callback
+ * TODO: what happens when doc service distributed?
  */
 exports.getTopTen = (callback) => {
   const query = connection.createFetchQuery('docs', {
