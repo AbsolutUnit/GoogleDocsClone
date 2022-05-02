@@ -35,9 +35,9 @@ const isAuth = (req, res, next) => {
     res.redirect('/');
   }
 };
-app.use(isAuth);
 // server setup & middleware
 const app = express();
+app.use(isAuth);
 app.use(cors());
 app.use((req, res, next) => {
   logger.info(`Server Request URL: ${req.url}`);
