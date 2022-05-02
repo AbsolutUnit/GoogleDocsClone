@@ -30,7 +30,13 @@ app.get('/', (_, res) => {
 // Now, if it needs to be proxied, proxy it.
 
 const proxy = httpProxy.createProxyServer();
-const docServers = process.env["DOCUMENT_SHARDS"].split(",");
+
+let docServers = process.env["DOCUMENT_SHARDS"]
+if (typeof(docServers == "string")) {
+  docServers = docServers.substr(1, docServers.length - 2).replace(/"/g,'').split(",");
+}
+
+// const docServers = process.env["DOCUMENT_SHARDS"];
 const docServerCount = docServers.length;
 const docServerChoice = (docID) => docID.substring(0, docID.indexOf("-")); // gets shardID from start of docID
 
@@ -51,6 +57,7 @@ let collectionsMade = 0;
 function collectionCreateProxy(req, res) {
   if (req.session.isAuth) {
     const target = docServers[collectionsMade % docServerCount];
+    logger.debug(`target: ${target}, typeof: ${typeof(target)}`);
     logger.info(`Collection request: redirecting to ${target}`);
     collectionsMade++;
     proxy.web(req, res, {target: target});

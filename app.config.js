@@ -3,14 +3,35 @@ const documentEnv = require('./document/env');
 
 module.exports = {
   apps: [{
-    name: "gateway",
+    name: "gateway0",
     script: "./gateway/gateway.js",
-    env: gatewayEnv,
-    instances: 4,
-    increment_var: 'PORT',
+    env: { ...gatewayEnv, PORT: 8080 },
     autorestart: false,
     log_date_format: "YYYY-MM-DD HH:mm Z"
   },
+  /*
+  {
+    name: "gateway1",
+    script: "./gateway/gateway.js",
+    env: { ...gatewayEnv, PORT: 8081 },
+    autorestart: false,
+    log_date_format: "YYYY-MM-DD HH:mm Z",
+  },
+  {
+    name: "gateway2",
+    script: "./gateway/gateway.js",
+    env: { ...gatewayEnv, PORT: 8082 },
+    autorestart: false,
+    log_date_format: "YYYY-MM-DD HH:mm Z",
+  },
+  {
+    name: "gateway3",
+    script: "./gateway/gateway.js",
+    env: { ...gatewayEnv, PORT: 8083 },
+    autorestart: false,
+    log_date_format: "YYYY-MM-DD HH:mm Z",
+  },
+  */
   {
     name: "doc0",
     script: "./document/server.js",
