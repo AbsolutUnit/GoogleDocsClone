@@ -5,7 +5,7 @@ import { check, sleep } from 'k6';
 
 export const options = {
   vus: 1,
-  duration:'5s',
+  duration:'30s',
   // stages: [
   //   { duration: '30s', target: 20 },
   //   { duration: '1m30s', target: 10 },
@@ -84,6 +84,7 @@ export default function () {
 
   // create doc, submit some text, then search for it
   res = http.post(createURL, JSON.stringify({name: name}), {headers: loginHeaders}) // every VU creates its own doc for now
+  console.log('res:', JSON.stringify(res))
   check(res, {'docid returned': (r) => !!JSON.parse(r.body).docid })
   let docID = JSON.parse(res.body).docid
   let clientID = name
@@ -102,11 +103,19 @@ export default function () {
 
   // now search
   res = http.get(`${searchURL}?q=philosophicaltahr%20defensivesnipe%20instantcuckoo`)
-  check(res, {'got search results': (r) => !!r.body}) // check nonempty body for now
-  console.log('search res.body: ', res.body)
+  check(res, {'got search results': (r) => r.body != '[]'}) // check nonempty body for now
+  if (res.body == '[]') {
+    console.log('empty search')
+  } else {
+    console.log('search res.body ', res.body)
+  }
   res = http.get(`${suggestURL}?q=reducedseahor`) // VU&10, VU&11, etc. all possible matches that should be in there (assumeing numOps big enuf)
-  check(res, {'got suggestions': (r) => !!r.body})
-  console.log('suggest res.body: ', res.body)
+  check(res, {'got suggestions': (r) => r.body != '[]'})
+  if (res.body == '[]') {
+    console.log('empty suggest')
+  } else {
+    console.log('suggest res.body ', res.body)
+  }
 
   // for (let i=0; i < numOps; i++) {
   //   op = [{ insert: `${name}&${i} ` }]
@@ -120,6 +129,6 @@ export default function () {
   //   if (JSON.parse(res.body).status === 'ok') version++
   // }
 
-  sleep(30)
+  sleep(5)
 
 }

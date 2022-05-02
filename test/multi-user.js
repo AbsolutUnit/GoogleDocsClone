@@ -4,22 +4,18 @@ import { check, sleep } from 'k6';
 // if we want node modules here we need a bundler...
 
 export const options = {
-  // vus: 600,
-  // duration:'4m',
-  stages: [
-    { duration: '20s', target: 100 },
-    { duration: '20s', target: 200 },
-    { duration: '30s', target: 300 },
-    { duration: '40s', target: 400 },
-    { duration: '40s', target: 600 },
-    { duration: '1m', target: 800 },
-    {duration: '1m30s', target: 1000 }
-  ],
+  vus: 50,
+  duration:'1m30s',
+  // stages: [
+  //   { duration: '30s', target: 20 },
+  //   { duration: '1m30s', target: 10 },
+  //   { duration: '20s', target: 0 },
+  // ],
 };
 
 /* init code, run once per VU */
 
-const numOps = 150
+const numOps = 200
 const headers = {'Content-Type': 'application/json', 'Accept': '*/*'}
 
 // base urls
@@ -54,12 +50,45 @@ const mediaData = {
   file: http.file(binFile, 'image.png'),
 };
 
+export function setup() {
+  let name = `VU${exec.vu.idInTest}`
+  let email = `VU${exec.vu.idInTest}@fake.com`
+  let password = 'KevinScaredOfVim'
+
+  // signup/verify/login sequence
+  let res = http.post(signupURL, JSON.stringify({name: name, email: email, password: password}), {headers: headers})
+  check(res, { 'signup status was 200': (r) => r.status == 200 }); // response body can be empty per spec, just check status to pass test
+  sleep(1)
+  res = http.get(`${verifyURL}?name=${name}&key=${password}`) // password is backdoor key
+  check(res, { 'verify status was 200': (r) => r.status == 200 });
+  sleep(1)
+  res = http.post(loginURL, JSON.stringify({email: email, password: password}), {headers: headers})
+  check(res, {'user logged in (1st time)': (r) => JSON.parse(r.body).name == name && r.cookies })
+  sleep(1)
+  http.post(logoutURL)
+  check(res, { 'logout status was 200': (r) => r.status == 200 });
+  sleep(1)
+  res = http.post(loginURL, JSON.stringify({email: email, password: password}), {headers: headers})
+  check(res, {'user logged in (2nd time)': (r) => JSON.parse(r.body).name == name && r.cookies })
+  sleep(1)
+
+  // create more docs here if u want to...
+
+  res = http.post(createURL, JSON.stringify({name: name}), {headers: headers}) // every VU creates its own doc for now
+  check(res, {'docid returned': (r) => !!JSON.parse(r.body).docid })
+  let docID = JSON.parse(res.body).docid
+  return { docID: docID };
+}
+
 // this function will loop for duration seconds (see options const)
 export default function (data) {
 
   let name = `VU${exec.vu.idInTest}`
+  let clientID = name
   let email = `VU${exec.vu.idInTest}@fake.com`
   let password = 'KevinScaredOfVim'
+
+  let docID = data.docID
   
   // signup/verify/login sequence
   let res = http.post(signupURL, JSON.stringify({name: name, email: email, password: password}), {headers: headers})
@@ -78,44 +107,19 @@ export default function (data) {
   check(res, {'user logged in (2nd time)': (r) => JSON.parse(r.body).name == name && r.cookies })
   sleep(1)
 
-  // doc creation and op submission sequence
-  res = http.post(createURL, JSON.stringify({name: name}), {headers: headers}) // every VU creates its own doc for now
-  check(res, {'docid returned': (r) => !!JSON.parse(r.body).docid })
-  let docID = JSON.parse(res.body).docid
-  let clientID = name
-  sleep(0.5)
+  // op submission sequence
   let version = 0
   for (let i=0; i < numOps; i++) {
     sleep(0.05)
     let op = [{ insert: `${name}&${i} ` }]
     res = http.post(`${opURL}/${docID}/${clientID}`, JSON.stringify({version: version, op: op}), {headers: headers})
     while (JSON.parse(res.body).status === 'retry') {
-      console.log('got retry, incrementing version number')
       version++
       sleep(0.05)
       res = http.post(`${opURL}/${docID}/${clientID}`, JSON.stringify({version: version, op: op}), {headers: headers})
     }
     check(res, { 'submitted op': (r) => JSON.parse(r.body).status === 'ok' })
     if (JSON.parse(res.body).status === 'ok') version++
-
-
-    // throw some search in there
-    if (!(i % 75)) {
-      res = http.get(`${searchURL}?q=VU${exec.vu.idInTest}`)
-      check(res, {'got search results': (r) => r.body != '[]'}) // check nonempty body for now
-      if (res.body == '[]') {
-        console.log('empty search')
-      } else {
-        // console.log('search res.body ', res.body)
-      }
-      res = http.get(`${suggestURL}?q=VU`) // VU&10, VU&11, etc. all possible matches that should be in there (assuming numOps big enuf)
-      check(res, {'got suggestions': (r) => r.body != '[]'})
-      if (res.body == '[]') {
-        console.log('empty suggest')
-      } else {
-        // console.log('suggest res.body ', res.body)
-      }
-    }
 
     // throw some media in there
     if (!(i % 50)) {
