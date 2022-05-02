@@ -33,10 +33,8 @@ const proxy = httpProxy.createProxyServer();
 
 let docServers = process.env["DOCUMENT_SHARDS"]
 if (typeof(docServers == "string")) {
-  docServers = docServers.substr(1, docServers.length - 2).replace(/"/g,'').split(",");
+  docServers = docServers.substring(1, docServers.length - 1).replace(/"/g,'').split(",");
 }
-
-// const docServers = process.env["DOCUMENT_SHARDS"];
 const docServerCount = docServers.length;
 const docServerChoice = (docID) => docID.substring(0, docID.indexOf("-")); // gets shardID from start of docID
 

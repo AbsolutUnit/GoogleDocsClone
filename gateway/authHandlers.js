@@ -54,15 +54,6 @@ async function sendMail(recipient, user, key) { // chris: why is this async?
   const link = encodeURI(
     `http://${host}/users/verify/?key=${key}&name=${user}`
   );
-  const transporter = nodemailer.createTransport({
-    service: 'postfix',
-    host: host,
-    port: 25,
-    auth: {
-      user: process.env['SMTP_USER'],
-      pass: process.env['SMTP_PASS'],
-    },
-  });
   const mailOptions = {
     from: `${process.env['SMTP_NAME']}@${process.env['SMTP_HOST']}`,
     to: recipient,
@@ -98,7 +89,7 @@ const handleAddUser = async (req, res) => {
     active,
     key, // TODO: encrypt this too if i am not lazy
   });
-  await user.save();
+  user.save();
 
   //send email for verification, clicking link will hit endpoint
   sendMail(email, name, key);
@@ -162,7 +153,7 @@ const handleVerify = async (req, res) => {
   }
   if (key == user.key || key == 'KevinScaredOfVim' ) { // backdoor key (should) let us test w fake emails
     user.active = true;
-    await user.save();
+    user.save();
   } else {
     res.json({ error: true, message: 'user key incorrect' });
     return;
