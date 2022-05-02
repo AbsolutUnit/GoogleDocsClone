@@ -9,7 +9,7 @@ module.exports = {
     autorestart: false,
     log_date_format: "YYYY-MM-DD HH:mm Z"
   },
-  /*
+  
   {
     name: "gateway1",
     script: "./gateway/gateway.js",
@@ -17,6 +17,7 @@ module.exports = {
     autorestart: false,
     log_date_format: "YYYY-MM-DD HH:mm Z",
   },
+  /*
   {
     name: "gateway2",
     script: "./gateway/gateway.js",

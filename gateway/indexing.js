@@ -58,9 +58,9 @@ exports.handleDeleteIndex = (_, res) => {
 //returns a snippet string from highlight object, priority given to text
 function pickSnippet(highlight) {
   if (highlight.text) {
-    return highlight.text[0];
+    return highlight.text.join('...');
   } else if (highlight.name) {
-    return highlight.name[0];
+    return highlight.name.join('...');
   } else {
     return '';
   }
@@ -68,7 +68,6 @@ function pickSnippet(highlight) {
 
 // /index/search?q=...
 exports.handleIndexSearch = async (req, res) => {
-  await new Promise(resolve => setTimeout(resolve, 2000));
   const searchText = req.query.q;
   client
     .search({
@@ -85,7 +84,7 @@ exports.handleIndexSearch = async (req, res) => {
           //  fields: ['name', 'text'],
           //},
         },
-        highlight: {
+        highlight: { 
           fields: {
             text: {},
             name: {}
@@ -116,7 +115,6 @@ exports.handleIndexSearch = async (req, res) => {
 // /index/suggest?q=...
 // TODO : figure out a way to get multiple autocomplete suggests (also do we really have to)
 exports.handleIndexSuggest = async (req, res) => {
-  await new Promise(resolve => setTimeout(resolve, 2000));
   const suggestText = req.query.q;
   const response = await client.search({
     index: 'documents',

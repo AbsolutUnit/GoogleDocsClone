@@ -23,14 +23,24 @@ const authStore = new MongoDBSession({
 });
 const UserModel = require('./models/User');
 
-const authSession =
-    session({
-      secret: 'some key', // TODO: .env this?
-      resave: false,
-      saveUninitialized: false,
-      store: authStore,
-    });
+const authSession = session({
+  secret: 'some key', // TODO: .env this?
+  resave: false,
+  saveUninitialized: false,
+  store: authStore,
+});
 
+// outside of sendMail to avoid memory leak
+const host = process.env['SMTP_HOST'];
+const transporter = nodemailer.createTransport({
+  service: 'postfix',
+  host: host,
+  port: 25,
+  auth: {
+    user: process.env['SMTP_USER'],
+    pass: process.env['SMTP_PASS'],
+  },
+});
 
 /**
  * Send an email to a recipient for username, with key.
