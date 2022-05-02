@@ -27,6 +27,15 @@ const store = new MongoDBSession({
   collection: 'users', 
 });
 
+const isAuth = (req, res, next) => {
+  if (req.session.isAuth) {
+    next();
+  } else {
+    logger.warn('not logged in!');
+    res.redirect('/');
+  }
+};
+app.use(isAuth);
 // server setup & middleware
 const app = express();
 app.use(cors());
