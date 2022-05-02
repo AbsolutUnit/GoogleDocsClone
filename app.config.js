@@ -6,7 +6,8 @@ module.exports = {
     name: "gateway",
     script: "./gateway/gateway.js",
     env: gatewayEnv,
-    instances: 1,
+    instances: 4,
+    increment_var: 'PORT',
     autorestart: false,
     log_date_format: "YYYY-MM-DD HH:mm Z"
   },

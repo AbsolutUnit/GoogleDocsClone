@@ -75,10 +75,15 @@ exports.handleIndexSearch = async (req, res) => {
       index: 'documents',
       body: {
         query: {
-          multi_match: {
-            query: searchText.trim(),
+          simple_query_string: { // phrase matching
+            query: "\""+searchText.trim()+"\"",
             fields: ['name', 'text'],
+            default_operator: 'and',
           },
+          //multi_match: { // individual word matching
+          //  query: searchText.trim(),
+          //  fields: ['name', 'text'],
+          //},
         },
         highlight: {
           fields: {
@@ -127,10 +132,10 @@ exports.handleIndexSuggest = async (req, res) => {
       },
     },
   });
-  let suggestedWords = response.suggest.gotsuggest[0].options[0];
-  if (!suggestedWords) {
-    res.json([]); //alternatively thow an error
-  } else {
-    res.json([suggestedWords.text]);
+  let options = response.suggest.gotsuggest[0].options;
+  let suggestedWords = [];
+  for (option of options) {
+    suggestedWords.push(option.text)
   }
+  res.json(Array.from(new Set(suggestedWords)));
 };
