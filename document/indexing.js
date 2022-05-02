@@ -29,12 +29,11 @@ exports.addDocument = (id, name, text) => {
   client
     .index({
       index: 'documents',
-      id: id,
-      refresh: true,
+      id: id, 
       body: {
         name,
         text, 
-        suggest: text.trim().split(' '),
+        suggest: text.replace(new RegExp('\n', 'g'), ' ').split(' ').filter(word => word),
       },
     })
     .then((response) => {
@@ -49,11 +48,10 @@ exports.updateDocument = async (text, id) => {
   await client.update({
     index: 'documents',
     id: id,
-    refresh : true,
     doc: {
       //TODO: what is the difference between this and script
       text: text,
-      suggest: text.trim().split(' '),
+      suggest: text.replace(new RegExp('\n', 'g'), ' ').split(' ').filter(word => word),
     },
   });
 };
