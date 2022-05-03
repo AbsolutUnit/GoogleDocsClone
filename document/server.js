@@ -11,10 +11,10 @@ const homeHandlers = require('./homeHandlers')
 
 
 // session storage
-const mongoURI = process.env["MONGO_URI"];
-logger.info(`mongoURI: ${mongoURI}`)
+const sessionStoreURI = process.env["SESSION_STORE_URI"];
+logger.info(`sessionStoreURI: ${sessionStoreURI}`)
 mongoose
-  .connect(mongoURI, {
+  .connect(sessionStoreURI, {
     useNewURLParser: true,
     //useCreateIndex: true,
     useUnifiedTopology: true,
@@ -23,19 +23,10 @@ mongoose
     logger.info('MongoDB connected');
   });
 const store = new MongoDBSession({
-  uri: mongoURI,
+  uri: sessionStoreURI,
   collection: 'users', 
 });
 
-const isAuth = (req, res, next) => {
-  if (req.session.isAuth) {
-    next();
-  } else {
-    logger.warn('not logged in!');
-    res.redirect('/');
-  }
-};
-app.use(isAuth);
 // server setup & middleware
 const app = express();
 app.use(cors());
@@ -61,6 +52,15 @@ app.use((req, res, next) => {
   res.setHeader('X-CSE356', process.env['CSE_356_ID']);
   next();
 });
+const isAuth = (req, res, next) => {
+  if (req.session.isAuth) {
+    next();
+  } else {
+    logger.warn('not logged in!');
+    res.redirect('/');
+  }
+};
+app.use(isAuth);
 
 // endpoints
 app.post('/collection/create', docHandlers.handleCreate);

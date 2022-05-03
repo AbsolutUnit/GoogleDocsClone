@@ -10,8 +10,8 @@ const DocMapModel = require('./models/Document');
 const {v4: uuidv4} = require('uuid');
 const { logger } = require('./logger')
 
-const mongoURI = process.env["MONGO_URI"];
-const db = require('sharedb-mongo')(mongoURI);
+const docStoreURI = process.env["DOC_STORE_URI"];
+const db = require('sharedb-mongo')(docStoreURI);
 ShareDB.types.register(richText.type);
 const backend = new ShareDB({
   db: db,
