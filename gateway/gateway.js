@@ -1,6 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const httpProxy = require('http-proxy');
 
 const { logger } = require('./logger');
 const { authSession, handleAddUser, handleLogin, handleLogout, handleVerify } = require('./authHandlers');
@@ -24,63 +23,7 @@ app.use(authSession);
 
 app.get('/', (_, res) => {
     res.sendFile('/root/final/static/login.html');
-  });
-
-
-// Now, if it needs to be proxied, proxy it.
-
-const proxy = httpProxy.createProxyServer();
-
-let docServers = process.env["DOCUMENT_SHARDS"]
-if (typeof(docServers == "string")) {
-  docServers = docServers.substring(1, docServers.length - 1).replace(/"/g,'').split(",");
-}
-const docServerCount = docServers.length;
-const docServerChoice = (docID) => docID.substring(0, docID.indexOf("-")); // gets shardID from start of docID
-
-// Proxy rules: proxy to the shard id, then proxy after with nginx on a smaller section of the shard id.
-function documentProxy(req, res) {
-  if (req.session.isAuth) {
-    logger.info(`req.params.docID: ${req.params.docID}`)
-    const target = docServers[parseInt(docServerChoice(req.params.docID))];
-    proxy.web(req, res, {target: target});
-  } else {
-    logger.warn("Unauthenticated.");
-  }
-}
-app.all('/doc/*/:docID/:UID', documentProxy);
-
-// Round robin the collection requests between the document servers.
-let collectionsMade = 0;
-function collectionCreateProxy(req, res) {
-  if (req.session.isAuth) {
-    const target = docServers[collectionsMade % docServerCount];
-    logger.debug(`target: ${target}, typeof: ${typeof(target)}`);
-    logger.info(`Collection request: redirecting to ${target}`);
-    collectionsMade++;
-    proxy.web(req, res, {target: target});
-  }
-}
-app.all('/collection/create', collectionCreateProxy);
-
-// Like document proxy, but we need to get the document ID from the body.
-function collectionDeleteProxy(req, res) {
-  if (req.session.isAuth) {
-    const target = docServers[parseInt(docServerChoice(req.body.docId))];
-    proxy.web(req, res, {target: target});
-  }
-}
-app.all('/collection/delete', express.json(), collectionDeleteProxy);
-
-// We send collection list to the server that has created a document least recently.
-// We guess this server has the least load, and that server checks the database for the top 10.
-function collectionListProxy(req, res) {
-  if (req.session.isAuth) {
-    const target = docServers[(collectionsMade + 1) % docServerCount];
-    proxy.web(req, res, {target: target});
-  }
-}
-app.all('/collection/list', collectionListProxy);
+});
 
 app.post(
   '/media/upload/',
