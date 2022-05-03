@@ -29,6 +29,7 @@ const store = new MongoDBSession({
 
 // server setup & middleware
 const app = express();
+app.use(isAuth);
 app.use(cors());
 app.use((req, res, next) => {
   logger.info(`Server Request URL: ${req.url}`);
