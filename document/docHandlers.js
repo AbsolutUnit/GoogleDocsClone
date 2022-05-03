@@ -18,12 +18,14 @@ const backend = new ShareDB({
   presence: true,
   doNotForwardSendPresenceErrorsToClient: true,
 });
+// don't think we need this wss business bc we don't use websockets anymore
 const wss = new WebSocket.Server({ port: parseInt(process.env['PORT']) + 100 });
 wss.on('connection', function (ws) {
   var stream = new WebSocketJSONStream(ws);
   backend.listen(stream);
   logger.info(`ShareDB listening on ${parseInt(process.env['PORT']) + 100}`)
 });
+
 const connection = backend.connect();
 
 
@@ -56,12 +58,286 @@ const updateIndex = async (docData, docID) => {
 }
 
 /**
+ * Connect to this server to receive document operations with HTML server side events.
+ *
+ * @param req.params: {documentId, clientId}
+ * @returns an event stream containing the document data.
+ */
+exports.handleDocConnect = (req, res) => {
+  // sse headers
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Content-Type': 'text/event-stream',
+    'Connection': 'keep-alive',
+    'Cache-Control': 'no-cache',
+  };
+  res.writeHead(200, headers);
+
+  const docID = req.params.DOCID;
+  const clientID = req.params.UID;
+
+  const doc = docStore[docID];
+  // Sometimes we may be editing a document that came from mongodb, so it wasnt created this session.
+  if (doc === undefined) {
+    logger.warn(`docStore[${docID}] undefined in handleDocConnect`)
+    docStore[docID] = {};
+    share = connection.get("docs", docID);
+    docStore[docID].share = share;
+    docStore[docID].clients = {};
+    docStore[docID].presence = connection.getDocPresence("docs", docID);
+    docStore[docID].version = share.version;
+  }
+  const presence = doc.presence;
+  const localPresence = presence.create(clientID);
+
+  // Store response object as a client.
+  doc.clients[clientID] = {res};
+
+  // Listen for presence
+  presence.subscribe()
+  presence.on('receive', function(id, cursor) {
+    if (id != clientID) {
+      res.write(`data ${JSON.stringify({presence: {id: id, cursor: cursor}})}\n\n`);
+    }
+  });
+
+  doc.share.subscribe((err) => {
+    if (err) res.json({ error: true, message: `doc subscribe failed with err=${err}` });
+    let data = `data: ${JSON.stringify({
+      content: doc.share.data.ops,
+      version: doc.version,
+    })}\n\n`;
+    res.write(data)
+    doc.share.on('op', (op, source) => {
+      if (op.ops) op = op.ops
+      let data = `data: ${JSON.stringify(op)}\n\n`;
+      if (source.clientID == clientID) {
+        data = `data: ${JSON.stringify({ ack: source.op })}\n\n`;
+      }
+      res.write(data)
+    });
+  });
+
+  // Closing handlers.
+  req.on('close', (msg) => {
+    logger.warn(`request closed. msg=${msg}`)
+    localPresence.submit({cursor: null}, function(err) {
+      if (err) throw err;
+    });
+    localPresence.destroy();
+    delete doc.clients[clientID];
+    if (doc.clients == {}) {
+      delete doc;
+    }
+  });
+};
+
+/**
+ * Submit a new change to the document.
+ *
+ * @param req.params {documentId, clientId}
+ * @param req.body {version, op}
+ * @returns req.json: { status }
+ */
+exports.handleDocOp = (req, res) => {
+  const docID = req.params.DOCID;
+  const clientID = req.params.UID;
+
+  const doc = docStore[docID];
+  if (doc === undefined) {
+    logger.error(`docStore[${docID}] undefined in handleDocOp`);
+    res.json({ status: 'error', message: 'document does not exist.' });
+    return;
+  }
+  logger.silly(`(BEFORE OP): doc.version=${doc.version},
+      req.body.version=${req.body.version}`)
+  if (req.body.version < doc.version) {
+    logger.warn(`retry: doc: ${doc.version} req: ${req.body.version} client: ${clientID}`);
+    res.send(`${JSON.stringify({ status: 'retry' })}`);
+    return;
+  }
+  logger.info('Submitting Op');
+  const source = {
+    clientID: clientID,
+    op: req.body.op,
+  };
+
+  doc.share.submitOp(req.body.op, { source: source }); // there is an optional callback, but not using for now
+  doc.version += 1
+  logger.silly(`(AFTER OP): doc.version=${doc.version}`)
+    
+  const updateFrequency = 25; // lower = more frq update
+  const initialUpdates = 3;
+  // will update every time for first few ops
+  if (doc.version < initialUpdates || !(doc.version % updateFrequency)) {
+    logger.info("Updating document index.");
+    updateIndex(doc.share.data, docID);
+  }
+
+  res.send(`${JSON.stringify({ status: 'ok' })}`);
+};
+
+/**
+ * Submit a new cursor position and selection length to the document.
+ *
+ * @param req.params {documentId, clientId}
+ * @param req.body {index, length}
+ * @returns req.json: {}
+ * */
+exports.handleDocPresence = (req, res, next) => {
+  const docID = req.params.UID;
+  const clientID = req.params.UID;
+  const { index, length } = req.body;
+
+  const doc = docStore[docID];
+  if (!(doc != undefined && doc.presence === undefined)) {
+    res.json({error: true, message: "presence endpoint called without any document created."});
+  }
+
+  const localPresence = docStore[docID].presence.create(clientID)
+  const cursor = {
+    index,
+    length,
+  };
+
+  localPresence.submit(cursor, function (err) {
+    if (err) throw err;
+    logger.info("submitted presence to sharedb")
+  });
+  res.json({});
+};
+
+/**
+ * Get the document represented as HTML.
+ * @param req.params {documentId, clientId}
+ * @returns <html>
+ */
+exports.handleDocGet = (req, res, next) => {
+  const docID = req.params.DOCID;
+  const clientID = req.params.UID;
+  // NOTE: notice there is no doc.fetch here...
+  // TODO: optimize!
+  const doc = connection.get('docs', docID);
+  const deltaOps = doc.data.ops;
+  const converter = new QuillDeltaToHtmlConverter(deltaOps, {});
+  const html = converter.convert();
+  res.send(html);
+};
+
+/**
+ * Create a new document (collection) to be edited.
+ *
+ * @param req.body { name }
+ * @returns req.json: {docId}
+ */
+ exports.handleCreate = (req, res, next) => {
+  const { name: name } = req.body;
+  // create the document ID to
+  const docID = `${process.env["SHARD_ID"]}-${process.env["PORT"]}-${uuidv4()}`;
+  let doc = connection.get('docs', docID);
+  doc.fetch(async function (err) {
+    if (err) throw err;
+    if (doc.type === null) {
+      doc.create([{ insert: '\n' }], 'rich-text');
+      indexing.addDocument(docID, name, '\n')
+      let documentMap = new DocMapModel({
+        docName: name,
+        docID,
+      });
+      
+      documentMap.save(function (err) {
+        if (err) {
+          logger.error(`Errored out on create: ${JSON.stringify(err)}`);
+          res.json({ error: true, message: "couldn't save the document map" });
+          return;
+        }
+      });
+    }});
+  doc.subscribe((error) => {
+    if (error) {
+      logger.warn(`could not subscribe to doc error ${error}`);
+    }
+  });
+
+  docStore[docID] = {};
+  docStore[docID].share = doc;
+  docStore[docID].clients = {};
+  docStore[docID].presence = connection.getDocPresence("docs", docID);
+  docStore[docID].version = 0;
+
+  res.json({ docid: `${docID}` });
+};
+
+/**
+ * Delete a document from the server.
+ *
+ * @param req.body { docid }
+ * @returns res.json { status }
+ */
+exports.handleDelete = async (req, res, next) => {
+  const { docid: docID } = req.body;
+  const doc = connection.get('docs', docID);
+  doc.fetch(async function (err) {
+    if (err) throw err;
+    if (doc.type === null) {
+      res.json({ error: true, message: 'Could not delete document.' });
+      return;
+    } else if (doc.type !== null) {
+      doc.del(); // this or doc.del()
+      logger.info(`doc id: ${docID} deleted!`);
+      DocMapModel.deleteOne({ docID }, function (err) {
+        if (err) {
+          logger.info(`Error on Delete: ${JSON.stringify(err)}`);
+          res.json({ error: true, message: 'Could not delete document.' });
+          return;
+        }
+      });
+    }
+  });
+  res.json({});
+};
+
+/**
+ * Get the list of the ten most recently modified documents.
+ *
+ * @returns req.json [{ id, name }]
+ */
+exports.handleList = (req, res, next) => {
+  exports.getTopTen(function (resList) {
+    res.json(resList);
+  });
+};
+
+/**
+ * Get the top 10 most recently modified documents from ShareDB.
+ *
+ * @param callback
+ * @returns none, but calls the callback
+ * TODO: what happens when doc service distributed?
+ */
+exports.getTopTen = (callback) => {
+  const query = connection.createFetchQuery('docs', {
+    $sort: { '_m.mtime': -1 },
+    $limit: 10,
+  });
+  let resList = [];
+  query.on('ready', async function () {
+    let docList = query.results;
+    for (const doc of docList) {
+      let name = await DocMapModel.findOne({ docID: doc.id });
+      resList.push({ id: doc.id, name: name.docName });
+    }
+    callback(resList);
+  });
+};
+
+/**
  * Show the UI for editing a document: /doc/edit/:documentId
  *
  * @param req.params: {documentId}
  * @returns <html>
  */
-exports.handleDocEdit = (req, res, next) => {
+ exports.handleDocEdit = (req, res, next) => {
   let documentID = req.params.DOCID;
   let editPage = `
   <!DOCTYPE html>
@@ -220,316 +496,4 @@ exports.handleDocEdit = (req, res, next) => {
   res.send(editPage);
 };
 
-/**
- * Connect to this server to receive document operations with HTML server side events.
- *
- * @param req.params: {documentId, clientId}
- * @returns an event stream containing the document data.
- */
-exports.handleDocConnect = (req, res) => {
-  const docID = req.params.DOCID;
-  const clientID = req.params.UID;
-
-  const doc = docStore[docID];
-  // Sometimes we may be editing a document that came from mongodb, so it wasnt created this session.
-  if (doc === undefined) {
-    docStore[docID] = {};
-    share = connection.get("docs", docID);
-    docStore[docID].share = share;
-    docStore[docID].clients = {};
-    docStore[docID].presence = connection.getDocPresence("docs", docID);
-    docStore[docID].version = share.version;
-  }
-  const presence = doc.presence;
-  const localPresence = presence.create(clientID);
-
-  // sse headers
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Content-Type': 'text/event-stream',
-    'Connection': 'keep-alive',
-    'Cache-Control': 'no-cache',
-  };
-  res.writeHead(200, headers);
-
-  // Get content of document from the mapping.
-  res.write(`data: ${JSON.stringify({content: doc.share.data.ops, version: doc.version})}\n\n`);
-
-  // Store response object as a client.
-  doc.clients[clientID] = {res};
-
-  // Listen for presence
-  presence.subscribe()
-  presence.on('receive', function(id, cursor) {
-    if (id != clientID) {
-      res.write(`data ${JSON.stringify({presence: {id: id, cursor: cursor}})}\n\n`);
-    }
-  });
-
-  doc.share.subscribe((err) => {
-    if (err) res.json({ error: true, message: err });
-    let data = `data: ${JSON.stringify({
-      content: doc.share.data.ops,
-      version: doc.version,
-    })}\n\n`;
-    res.write(data)
-    doc.share.on('op', (op, source) => {
-      if (op.ops) op = op.ops
-      let data = `data: ${JSON.stringify(op)}\n\n`;
-      if (source.clientID == clientID) {
-        data = `data: ${JSON.stringify({ ack: source.op })}\n\n`;
-      }
-      res.write(data)
-    });
-  });
-
-  // Closing handlers.
-  req.on('close', (msg) => {
-    logger.warn(`request closed. msg=${msg}`)
-    localPresence.submit({cursor: null}, function(err) {
-      if (err) throw err;
-    });
-    localPresence.destroy();
-    delete doc.clients[clientID];
-    if (doc.clients == {}) {
-      delete doc;
-    }
-  });
-};
-
-/**
- * Submit a new change to the document.
- *
- * @param req.params {documentId, clientId}
- * @param req.body {version, op}
- * @returns req.json: { status }
- */
-exports.handleDocOp = (req, res) => {
-  const docID = req.params.DOCID;
-  const clientID = req.params.UID;
-
-  const doc = docStore[docID];
-  if (doc === undefined) {
-    logger.error("document does not exist");
-    res.json({ status: 'error', message: 'document does not exist.' });
-    return;
-  }
-  logger.silly(`(BEFORE OP): doc.version=${doc.version},
-      req.body.version=${req.body.version}`)
-  if (req.body.version < doc.version) {
-    logger.warn(`retry: doc: ${doc.version} req: ${req.body.version} client: ${clientID}`);
-    res.send(`${JSON.stringify({ status: 'retry' })}`);
-    return;
-  }
-  logger.info('Submitting Op');
-  const source = {
-    clientID: clientID,
-    op: req.body.op,
-  };
-
-  /*
-  doc.share.submitOp(req.body.op, { source: source }, (error) => {
-    logger.info('submitOp callback')
-    if (error) {
-      res.json({status: 'error', message: error});
-    } else {
-      doc.version += 1;
-      logger.silly(`(AFTER OP): doc.version=${doc.version}`)
-      // Write to our source.
-      if (doc.clients[clientID] !== undefined) {
-        doc.clients[clientID].res.write(`data: ${JSON.stringify({ack: req.body.op})}\n\n`);
-        // Write to the rest of them.
-        let clis = Object.keys(doc.clients);
-        for (let i = 0; i < clis.length; i++) {
-          if(clis[i] != clientID)
-            doc.clients[clis[i]].res.write(`data: ${JSON.stringify(req.body.op)}\n\n`);
-        }
-      }
-    }
-  });
-  */
-
-  doc.share.submitOp(req.body.op, { source: source }); // there is an optional callback, but not using for now
-  doc.version += 1
-  logger.silly(`(AFTER OP): doc.version=${doc.version}`)
-
-  // completely bypass sharedb
-  /*
-  doc.version += 1
-  logger.info(`(AFTER OP): doc.version=${doc.version}`)
-  if (doc.clients[clientID]) {
-    doc.clients[clientID].res.write(`data: ${JSON.stringify({ack: req.body.op})}\n\n`);
-    // Write to the rest of them.
-    let clis = Object.keys(doc.clients);
-    for (let i = 0; i < clis.length; i++) {
-      if(clis[i] != clientID)
-        doc.clients[clis[i]].res.write(`data: ${JSON.stringify(req.body.op)}\n\n`);
-    }
-  }
-  */
-    
-  const updateFrequency = 25; // lower = more frq update
-  const initialUpdates = 3;
-  // will update every time for first few ops
-  if (doc.version < initialUpdates || !(doc.version % updateFrequency)) {
-    logger.info("Updating document index.");
-    updateIndex(doc.share.data, docID);
-  }
-
-  res.send(`${JSON.stringify({ status: 'ok' })}`);
-};
-
-/**
- * Submit a new cursor position and selection length to the document.
- *
- * @param req.params {documentId, clientId}
- * @param req.body {index, length}
- * @returns req.json: {}
- * */
-exports.handleDocPresence = (req, res, next) => {
-  const docID = req.params.UID;
-  const clientID = req.params.UID;
-  const { index, length } = req.body;
-
-  const doc = docStore[docID];
-  if (!(doc != undefined && doc.presence === undefined)) {
-    res.json({error: true, message: "presence endpoint called without any document created."});
-  }
-
-  const localPresence = docStore[docID].presence.create(clientID)
-  const cursor = {
-    index,
-    length,
-  };
-
-  localPresence.submit(cursor, function (err) {
-    if (err) throw err;
-    logger.info("submitted presence to sharedb")
-  });
-  res.json({});
-};
-
-/**
- * Get the document represented as HTML.
- * @param req.params {documentId, clientId}
- * @returns <html>
- */
-exports.handleDocGet = (req, res, next) => {
-  const docID = req.params.DOCID;
-  const clientID = req.params.UID;
-  // NOTE: notice there is no doc.fetch here...
-  // TODO: optimize!
-  const doc = connection.get('docs', docID);
-  const deltaOps = doc.data.ops;
-  const converter = new QuillDeltaToHtmlConverter(deltaOps, {});
-  const html = converter.convert();
-  res.send(html);
-};
-
-/**
- * Create a new document (collection) to be edited.
- *
- * @param req.body { name }
- * @returns req.json: {docId}
- */
- exports.handleCreate = (req, res, next) => {
-  const { name: name } = req.body;
-  // create the document ID to
-  const docID = `${process.env["SHARD_ID"]}-${process.env["PORT"]}-${uuidv4()}`;
-  let doc = connection.get('docs', docID);
-  doc.fetch(async function (err) {
-    if (err) throw err;
-    if (doc.type === null) {
-      doc.create([{ insert: '\n' }], 'rich-text');
-      indexing.addDocument(docID, name, '\n')
-      let documentMap = new DocMapModel({
-        docName: name,
-        docID,
-      });
-      
-      documentMap.save(function (err) {
-        if (err) {
-          logger.error(`Errored out on create: ${JSON.stringify(err)}`);
-          res.json({ error: true, message: "couldn't save the document map" });
-          return;
-        }
-      });
-    }});
-  doc.subscribe((error) => {
-    if (error) {
-      logger.warn(`could not subscribe to doc error ${error}`);
-    }
-  });
-
-  docStore[docID] = {};
-  docStore[docID].share = doc;
-  docStore[docID].clients = {};
-  docStore[docID].presence = connection.getDocPresence("docs", docID);
-  docStore[docID].version = 0;
-
-   res.json({ docid: `${docID}` });
-};
-
-/**
- * Delete a document from the server.
- *
- * @param req.body { docid }
- * @returns res.json { status }
- */
-exports.handleDelete = async (req, res, next) => {
-  const { docid: docID } = req.body;
-  const doc = connection.get('docs', docID);
-  doc.fetch(async function (err) {
-    if (err) throw err;
-    if (doc.type === null) {
-      res.json({ error: true, message: 'Could not delete document.' });
-      return;
-    } else if (doc.type !== null) {
-      doc.del(); // this or doc.del()
-      logger.info(`doc id: ${docID} deleted!`);
-      DocMapModel.deleteOne({ docID }, function (err) {
-        if (err) {
-          logger.info(`Error on Delete: ${JSON.stringify(err)}`);
-          res.json({ error: true, message: 'Could not delete document.' });
-          return;
-        }
-      });
-    }
-  });
-  res.json({});
-};
-
-/**
- * Get the list of the ten most recently modified documents.
- *
- * @returns req.json [{ id, name }]
- */
-exports.handleList = (req, res, next) => {
-  exports.getTopTen(function (resList) {
-    res.json(resList);
-  });
-};
-
-/**
- * Get the top 10 most recently modified documents from ShareDB.
- *
- * @param callback
- * @returns none, but calls the callback
- * TODO: what happens when doc service distributed?
- */
-exports.getTopTen = (callback) => {
-  const query = connection.createFetchQuery('docs', {
-    $sort: { '_m.mtime': -1 },
-    $limit: 10,
-  });
-  let resList = [];
-  query.on('ready', async function () {
-    let docList = query.results;
-    for (const doc of docList) {
-      let name = await DocMapModel.findOne({ docID: doc.id });
-      resList.push({ id: doc.id, name: name.docName });
-    }
-    callback(resList);
-  });
-};
 
