@@ -38,7 +38,7 @@ const isAuth = (req, res, next) => {
     next();
   } else {
     logger.warn('not logged in!');
-    res.redirect('/');
+    res.json({ error: true, message: 'not logged in' });
   }
 };
 

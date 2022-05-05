@@ -1,10 +1,33 @@
 const nodemailer = require('nodemailer');
 const { v4: uuidv4 } = require('uuid');
 const session = require('express-session');
+const redis = require('redis');
+const connectRedis = require('connect-redis');
 const MongoDBSession = require('connect-mongodb-session')(session);
 const mongoose = require('mongoose');
 
+const REDIS_PORT = 6379;
+const REDIS_HOST = "209.151.148.199"
+const REDIS_PASS = "fTZepNy1mjskl3zdYQcbMmaUM+46qIRP+vhcogG9OQn+bbBSzeaRejMEnHki98j6Fl9lfBysmAeDPfil"
+
 const { logger } = require('./logger');
+logger.warn(`${process.env['REDIS_HOST']}`);
+const redisStore = connectRedis(session);
+const redisClient = redis.createClient({
+  socket: {
+    host: REDIS_HOST,
+    port: REDIS_PORT,
+    password: REDIS_PASS
+  }
+});
+redisClient.connect();
+logger.warn(`Redis client created ${JSON.stringify(redisClient)}`);
+redisClient.on('error', function (err) {
+    logger.warn(`Could not connect with redis ${err}`);
+});
+redisClient.on('connect', function (err) {
+    logger.info('Connected to Redis successfully');
+});
 
 // db setup
 const mongoURI = process.env["MONGO_URI"];
@@ -17,6 +40,11 @@ mongoose
   .then(() => {
     logger.info('MongoDB connected');
   });
+/*
+const authStore = new redisStore({
+  client: redisClient
+});
+*/
 const authStore = new MongoDBSession({
   uri: mongoURI,
   collection: 'users',
