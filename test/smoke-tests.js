@@ -71,20 +71,27 @@ export default function () {
   sleep(1)
   res = http.post(loginURL, JSON.stringify({email: email, password: password}), {headers: loginHeaders})
   check(res, {'user logged in (1st time)': (r) => JSON.parse(r.body).name == name && r.cookies })
-  sleep(1)
-  http.post(logoutURL)
-  check(res, { 'logout status was 200': (r) => r.status == 200 });
-  sleep(1)
-  res = http.post(loginURL, JSON.stringify({email: email, password: password}), {headers: loginHeaders})
-  check(res, {'user logged in (2nd time)': (r) => JSON.parse(r.body).name == name && r.cookies })
+  res = http.get(`${searchURL}?q=philosophicaltahr%20defensivesnipe%20instantcuckoo`)
+  check(res, {'got search results': (r) => r.body != '[]'}) // check nonempty body for now
+  if (res.body == '[]') {
+    console.log('empty search')
+  } else {
+    console.log('search res.body ', res.body)
+  }
+  res = http.get(`${suggestURL}?q=reducedseahor`) // VU&10, VU&11, etc. all possible matches that should be in there (assumeing numOps big enuf)
+  check(res, {'got suggestions': (r) => r.body != '[]'})
+  if (res.body == '[]') {
+    console.log('empty suggest')
+  } else {
+    console.log('suggest res.body ', res.body)
+  }
   sleep(1)
 
   // res = http.post(`${indexURL}/deleteIndex`)
   // console.log('deleteIndex: ', res.body)
 
   // create doc, submit some text, then search for it
-  res = http.post(createURL, JSON.stringify({name: name}), {headers: loginHeaders}) // every VU creates its own doc for now
-  console.log('res:', JSON.stringify(res))
+  res = http.post(createURL, JSON.stringify({name: name}), {headers: loginHeaders}) // every VU creates its own doc for nows
   check(res, {'docid returned': (r) => !!JSON.parse(r.body).docid })
   let docID = JSON.parse(res.body).docid
   let clientID = name
