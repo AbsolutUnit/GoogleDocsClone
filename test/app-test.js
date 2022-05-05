@@ -7,13 +7,14 @@ export const options = {
   // vus: 600,
   // duration:'4m',
   stages: [
-    { duration: '20s', target: 100 },
-    { duration: '20s', target: 200 },
-    { duration: '30s', target: 300 },
-    { duration: '40s', target: 400 },
-    { duration: '40s', target: 600 },
-    { duration: '1m', target: 800 },
-    {duration: '1m30s', target: 1000 }
+    { duration: '20s', target: 400 },
+    { duration: '20s', target: 600 },
+    { duration: '20s', target: 800 },
+    { duration: '20s', target: 1000 },
+    { duration: '30s', target: 1200 },
+    { duration: '30s', target: 1500 },
+    {duration: '40s', target: 1800 },
+    {duration: '40s', target: 2000 }
   ],
 };
 
@@ -100,7 +101,7 @@ export default function (data) {
 
 
     // throw some search in there
-    if (!(i % 75)) {
+    if (!(i % 50)) {
       res = http.get(`${searchURL}?q=VU${exec.vu.idInTest}`)
       check(res, {'got search results': (r) => r.body != '[]'}) // check nonempty body for now
       if (res.body == '[]') {
@@ -118,7 +119,7 @@ export default function (data) {
     }
 
     // throw some media in there
-    if (!(i % 50)) {
+    if (!(i % 75)) {
       res = http.post(uploadURL, mediaData)
       check(res, { 'file uploaded': (r) => !!JSON.parse(r.body).mediaid})
       sleep(0.05)
