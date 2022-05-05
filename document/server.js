@@ -57,7 +57,11 @@ const isAuth = (req, res, next) => {
     next();
   } else {
     logger.warn('not logged in!');
+<<<<<<< Updated upstream
     res.json({error: true, message: 'not logged in' });
+=======
+    res.json({ error: true, message: 'not logged in' });
+>>>>>>> Stashed changes
   }
 };
 app.use(isAuth);
