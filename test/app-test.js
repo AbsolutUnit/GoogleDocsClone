@@ -14,7 +14,7 @@ export const options = {
     { duration: '30s', target: 1200 },
     { duration: '30s', target: 1500 },
     {duration: '40s', target: 1800 },
-    {duration: '40s', target: 2000 }
+    {duration: '1m', target: 2000 }
   ],
 };
 
@@ -81,6 +81,7 @@ export default function (data) {
 
   // doc creation and op submission sequence
   res = http.post(createURL, JSON.stringify({name: name}), {headers: headers}) // every VU creates its own doc for now
+  if (res.status != 200 || !('docid' in JSON.parse(res.body))) console.log('CREATE RESPONSE: ' + JSON.stringify(res))
   check(res, {'docid returned': (r) => !!JSON.parse(r.body).docid })
   let docID = JSON.parse(res.body).docid
   let clientID = name
@@ -90,8 +91,9 @@ export default function (data) {
     sleep(0.05)
     let op = [{ insert: `${name}&${i} ` }]
     res = http.post(`${opURL}/${docID}/${clientID}`, JSON.stringify({version: version, op: op}), {headers: headers})
-    while (JSON.parse(res.body).status === 'retry') {
-      console.log('got retry, incrementing version number')
+    if (res.status != 200 || !('status' in JSON.parse(res.body))) console.log('SUBMITOP RESPONSE: ' + JSON.stringify(res))
+    while (JSON.parse(res.body).status == 'retry') {
+      console.log('got RETRY, incrementing version number')
       version++
       sleep(0.05)
       res = http.post(`${opURL}/${docID}/${clientID}`, JSON.stringify({version: version, op: op}), {headers: headers})
@@ -101,7 +103,7 @@ export default function (data) {
 
 
     // throw some search in there
-    if (!(i % 50)) {
+    if (!(i % 20)) {
       res = http.get(`${searchURL}?q=VU${exec.vu.idInTest}`)
       check(res, {'got search results': (r) => r.body != '[]'}) // check nonempty body for now
       if (res.body == '[]') {
