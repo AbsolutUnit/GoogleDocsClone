@@ -6,6 +6,9 @@ const client = new Client({
 });
 logger.warn(`Here's the URI ${process.env["ELASTICSEARCH_URI"]}`);
 
+const prevSearch = new Map();
+const prevSuggest = new Map();
+
 exports.createIndex = async () => {
   logger.warn(`The current client is ${JSON.stringify(client)}`);
   if (await client.indices.exists({ index: 'documents' })) {
@@ -69,6 +72,10 @@ function pickSnippet(highlight) {
 // /index/search?q=...
 exports.handleIndexSearch = async (req, res) => {
   const searchText = req.query.q;
+  if(prevSearch.get(searchText) !== undefined) {
+    res.json(prevSearch.get(searchText));
+    return;
+  }
   client
     .search({
       index: 'documents',
@@ -105,10 +112,11 @@ exports.handleIndexSearch = async (req, res) => {
         });
       });
       logger.info(`endpointResponse: ${JSON.stringify(endpointResponse)}`) // ofc works
-      return res.json(endpointResponse)
+      prevSearch.set(searchText, endpointResponse);
+      res.json(endpointResponse)
     })
     .catch((err) => {
-      return res.json({ error: true, message: `search failed, err=${err} ` });
+      res.json({ error: true, message: `search failed, err=${err} ` });
     });
 };
 
@@ -116,6 +124,10 @@ exports.handleIndexSearch = async (req, res) => {
 // TODO : figure out a way to get multiple autocomplete suggests (also do we really have to)
 exports.handleIndexSuggest = async (req, res) => {
   const suggestText = req.query.q;
+  if(prevSuggest.get(suggestText) !== undefined) {
+    res.json(prevSuggest[suggestText]);
+    return;
+  }
   const response = await client.search({
     index: 'documents',
     body: {
@@ -135,5 +147,7 @@ exports.handleIndexSuggest = async (req, res) => {
   for (option of options) {
     suggestedWords.push(option.text)
   }
-  res.json(Array.from(new Set(suggestedWords)));
+  endpointResponse = Array.from(new Set(suggestedWords));
+  prevSuggest.set(suggestText, endpointResponse);
+  res.json(endpointResponse);
 };

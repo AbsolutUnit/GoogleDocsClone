@@ -57,16 +57,15 @@ const isAuth = (req, res, next) => {
     next();
   } else {
     logger.warn('not logged in!');
-<<<<<<< Updated upstream
     res.json({error: true, message: 'not logged in' });
-=======
-    res.json({ error: true, message: 'not logged in' });
->>>>>>> Stashed changes
   }
 };
 app.use(isAuth);
 
 // endpoints
+app.get('/', (req, res) => {
+    res.sendFile('/root/final/static/login.html');
+  });
 app.post('/collection/create', docHandlers.handleCreate);
 app.post('/collection/delete', docHandlers.handleDelete);
 app.get('/collection/list', docHandlers.handleList);
