@@ -5,7 +5,7 @@ import { check, sleep } from 'k6';
 
 export const options = {
   vus: 1,
-  duration:'10s',
+  duration:'15s',
   // stages: [
   //   { duration: '30s', target: 20 },
   //   { duration: '1m30s', target: 10 },
@@ -48,11 +48,6 @@ const getURL = docURL + '/get'
 const searchURL = indexURL + '/search'
 const suggestURL = indexURL + '/suggest'
 
-const binFile = open('../uploads/image.png', 'b');
-const mediaData = {
-  file: http.file(binFile, 'image.png'),
-};
-
 
 const lorem = `Far far away, behind the word mountains, philosophicaltahr defensivesnipe instantcuckoo far from the countries Vokalia and Consonantia, reducedseahorse there live the blind texts. Separated they live in Bookmarksgrove right at the coast of the Semantics, a large language ocean. A small river named Duden flows by their place and supplies it with the necessary regelialia. It is a paradisematic country, in which roasted parts of sentences fly into your mouth. Even the all-powerful Pointing has no control about the blind texts it is an almost unorthographic life One day however a small line of blind text by the name of Lorem Ipsum decided to leave for the far World of Grammar. The Big Oxmox advised her not to do so, because there were thousands of bad Commas, wild Question Marks and devious Semikoli, but the Little Blind Text didn’t listen. She packed her seven versalia, put her initial into the belt and made herself on the way. When she reached the first hills of the Italic Mountains, she had a last view back on the skyline of her hometown Bookmarksgrove, the headline of Alphabet Village and the subline of her own road, the Line Lane. Pityful a rethoric question ran over her cheek, then`;
 
@@ -66,71 +61,27 @@ export default function () {
   // signup/verify/login sequence
   let res = http.post(signupURL, JSON.stringify({name: name, email: email, password: password}), {headers: loginHeaders})
   check(res, { 'signup status was 200': (r) => r.status == 200 }); // response body can be empty per spec, just check status to pass test
-  sleep(0.25)
+  sleep(0.1)
   res = http.get(`${verifyURL}?name=${name}&key=${password}`) // password is backdoor key
   check(res, { 'verify status was 200': (r) => r.status == 200 });
-  sleep(0.25)
+  sleep(0.1)
   res = http.post(loginURL, JSON.stringify({email: email, password: password}), {headers: loginHeaders})
   check(res, {'user logged in (1st time)': (r) => JSON.parse(r.body).name == name && r.cookies })
-  res = http.get(`${searchURL}?q=philosophicaltahr%20defensivesnipe%20instantcuckoo`)
-  check(res, {'got search results': (r) => r.body != '[]'}) // check nonempty body for now
-  if (res.body == '[]') {
-    console.log('empty search')
-  } else {
-    console.log('search res.body ', res.body)
-  }
-  res = http.get(`${suggestURL}?q=reducedseahor`) // VU&10, VU&11, etc. all possible matches that should be in there (assumeing numOps big enuf)
-  check(res, {'got suggestions': (r) => r.body != '[]'})
-  if (res.body == '[]') {
-    console.log('empty suggest')
-  } else {
-    console.log('suggest res.body ', res.body)
-  }
-  sleep(0.25)
 
-  // res = http.post(`${indexURL}/deleteIndex`)
-  // console.log('deleteIndex: ', res.body)
-
-  // create doc, submit some text, then search for it
+  // create doc and hit connect endpoint
   res = http.post(createURL, JSON.stringify({name: name}), {headers: loginHeaders}) // every VU creates its own doc for nows
   check(res, {'docid returned': (r) => !!JSON.parse(r.body).docid })
   let docID = JSON.parse(res.body).docid
-  console.log('docID=' + docID)
   let clientID = name
   sleep(0.05)
-  let op = [{ insert: `${lorem}` }]
+  res = http.get(`${connectURL}/${docID}/${clientID}`)
+  console.log(`res.status: ${res.status}`)
+
+  let op = [{ insert: `EWFIJLVBEWFHIOVLBWEF` }]
   let version = 0
   res = http.post(`${opURL}/${docID}/${clientID}`, JSON.stringify({version: version, op: op}), {headers: loginHeaders})
-  while (JSON.parse(res.body).status === 'retry') {
-    console.log('RETRY')
-    version++
-    sleep(0.05)
-    res = http.post(`${opURL}/${docID}/${clientID}`, JSON.stringify({version: version, op: op}), {headers: loginHeaders})
-  }
-  // console.log('SUBMITOP RESPONSE: ' + JSON.stringify(res))
-  check(res, { 'submitted op': (r) => JSON.parse(r.body).status === 'ok' })
-  if (JSON.parse(res.body).status === 'ok') version++
+  console.log(docID)
+
   sleep(5)
-
-  // now search
-  res = http.get(`${searchURL}?q=philosophicaltahr%20defensivesnipe%20instantcuckoo`)
-  check(res, {'got search results': (r) => r.body != '[]'}) // check nonempty body for now
-  if (res.body == '[]') {
-    console.log('empty search')
-  } else {
-    console.log('search res.body ', res.body)
-  }
-  res = http.get(`${suggestURL}?q=reducedseahor`) // VU&10, VU&11, etc. all possible matches that should be in there (assumeing numOps big enuf)
-  check(res, {'got suggestions': (r) => r.body != '[]'})
-  if (res.body == '[]') {
-    console.log('empty suggest')
-  } else {
-    console.log('suggest res.body ', res.body)
-  }
-  sleep(0.25)
-
-  res = http.post(uploadURL, mediaData)
-  check(res, { 'file uploaded': (r) => !!JSON.parse(r.body).mediaid})
-  sleep(7)
 
 }
