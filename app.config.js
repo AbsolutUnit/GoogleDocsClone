@@ -61,6 +61,13 @@ module.exports = {
     autorestart: false,
     log_date_format: "YYYY-MM-DD HH:mm Z"
   },
+  {
+    name: "doc4",
+    script: "./document/server.js",
+    env: { ...documentEnv, PORT: 8084 },
+    autorestart: false,
+    log_date_format: "YYYY-MM-DD HH:mm Z"
+  },
   ]
 }
 

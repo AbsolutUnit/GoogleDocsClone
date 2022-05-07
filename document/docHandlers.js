@@ -151,11 +151,11 @@ exports.handleDocOp = (req, res) => {
   }
   logger.silly(`(BEFORE OP): doc.version=${doc.version},
       req.body.version=${req.body.version}`)
-  if (req.body.version < doc.version) {
-    logger.warn(`retry: doc: ${doc.version} req: ${req.body.version} client: ${clientID}`);
-    res.send(`${JSON.stringify({ status: 'retry' })}`);
-    return;
-  }
+//  if (req.body.version < doc.version) {
+//    logger.warn(`retry: doc: ${doc.version} req: ${req.body.version} client: ${clientID}`);
+//    res.send(`${JSON.stringify({ status: 'retry' })}`);
+//    return;
+//  }
   logger.info('Submitting Op');
   const source = {
     clientID: clientID,
@@ -236,7 +236,10 @@ exports.handleDocGet = (req, res, next) => {
   const docID = `${process.env["SHARD_ID"]}-${process.env["PORT"]}-${uuidv4()}`;
   let doc = connection.get('docs', docID);
   doc.fetch(async function (err) {
-    if (err) throw err;
+    if (err){
+      logger.error(`Error: ${err}`);
+      throw err;
+    }
     if (doc.type === null) {
       doc.create([{ insert: '\n' }], 'rich-text');
       indexing.addDocument(docID, name, '\n')
