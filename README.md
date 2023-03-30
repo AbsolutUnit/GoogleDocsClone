@@ -1,4 +1,4 @@
-# CSE 356 Final Project
+# Final Project
 
 Things to note:
 
